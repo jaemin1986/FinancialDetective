@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 ROOT = Path(__file__).resolve().parent.parent
 RAW = ROOT / "data" / "raw"
 DATA = ROOT / "data"
+RAW.mkdir(parents=True, exist_ok=True)  # 새 환경(GitHub Actions 등)에는 폴더가 없으므로 미리 만든다
 
 load_dotenv(ROOT / ".env")
 
