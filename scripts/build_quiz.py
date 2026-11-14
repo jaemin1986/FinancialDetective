@@ -1,0 +1,331 @@
+"""연습 문제 풀(docs/pool/) + 오늘의 문제(data/answers/YYYY-MM-DD.json) 생성
+
+실행 예:
+  .\\.venv\\Scripts\\python.exe scripts\\build_quiz.py                  # 내일 문제 + 연습 풀
+  .\\.venv\\Scripts\\python.exe scripts\\build_quiz.py --date 2026-11-15
+입력: data/corp_list.json, data/financials.json, data/market_cap.json
+출력:
+  data/answers/<날짜>.json 오늘의 문제 3개(재무표+보기)와 정답 (git 제외 → upload_daily.py가 Supabase로)
+                           공개 파일로는 만들지 않는다: 문제는 그날 새벽 3시 이후 RPC로만 내려감
+  docs/pool/               연습 문제 (정답은 base64+XOR 인코딩, git 제외 — Actions가 만들어 배포)
+보안:
+  - 오늘의 문제 회사는 SystemRandom으로 고른다(코드·데이터가 공개돼도 재현 불가).
+  - 최근 90일 출제 회사, 오늘·내일 출제 회사는 연습 풀에서 뺀다.
+금액은 원 단위 정수로 저장하고, 억원 표시는 화면(app.js)에서 한다.
+"""
+import argparse
+import base64
+import json
+import random
+import re
+from datetime import date, timedelta
+
+from common import ROOT, DATA, read_json, write_json, now_kst, quiz_today
+from fin_extract import BS_ITEMS
+
+DOCS = ROOT / "docs"
+ANSWERS = DATA / "answers"
+XOR_KEY = b"FinancialDetective-practice"  # 연습 모드용 가벼운 가림막(보안 목적 아님)
+REPEAT_DAYS = 90
+MATERIAL = 0.05  # 자산총계 대비 이 비율 이상인 해가 있으면 '클 때만 표시' 항목을 보여줌
+CHUNK = 50       # 연습 풀 파일 하나에 넣을 문제 수
+N_DISTRACTORS = 3  # 오답 보기 수 (보기 = 정답 1 + 오답 3 = 4개, 2026-11-14 결정)
+DAILY_COUNT = 3    # 오늘의 문제 하루 문제 수 (2026-11-14 결정)
+
+sysrand = random.SystemRandom()
+
+
+# ---------------------------------------------------------------- 표 만들기
+def _row(label, v, level=0, kind="amt"):
+    """화면용 한 줄: [이름, 들여쓰기(0/1), 종류(amt|sub|total|pct), [값...]]  (파일 크기를 줄이려고 배열)"""
+    return [label, level, kind, v]
+
+
+def _sub(a, b):
+    return [None if x is None or y is None else x - y for x, y in zip(a, b)]
+
+
+def _material(v, assets):
+    return v and any(x is not None and a and abs(x) >= MATERIAL * a for x, a in zip(v, assets))
+
+
+def bs_rows(bs):
+    assets = bs["assets"]
+    rows = []
+    blocks = [("current_assets", "유동자산"), ("noncurrent_assets", "비유동자산"), None,
+              ("current_liabilities", "유동부채"), ("noncurrent_liabilities", "비유동부채")]
+    for blk in blocks:
+        if blk is None:
+            rows.append(_row("자산총계", assets, 0, "total"))
+            continue
+        sec, title = blk
+        tot = bs[sec]
+        rows.append(_row(title, tot, 0, "sub"))
+        shown_sum = [0] * len(tot)
+        for spec in BS_ITEMS[sec]:
+            v = bs.get(spec["key"])
+            if spec["show"] == "always" or _material(v, assets):
+                v = v or [0] * len(tot)
+                rows.append(_row(spec["label"], v, 1))
+                shown_sum = [s + (x or 0) for s, x in zip(shown_sum, v)]
+        rows.append(_row("기타", _sub(tot, shown_sum), 1))  # 소계 − 표시한 항목 합
+    rows.append(_row("부채총계", bs["liabilities"], 0, "total"))
+    rows.append(_row("자본총계", bs["equity"], 0, "total"))
+    eo = bs.get("equity_owners")
+    if eo and eo != bs["equity"]:
+        rows.append(_row("지배주주 자본", eo, 1))
+    return rows
+
+
+def pl_rows(pl):
+    n = len(pl["revenue"])
+    z = [0] * n
+    g = lambda k: pl.get(k) or [None] * n  # 없는 항목은 빈 칸("-")
+    rows = [_row("매출액", g("revenue"), 0, "sub"),
+            _row("매출원가", g("cost_of_sales"), 1),
+            _row("매출총이익", g("gross_profit"), 0, "sub"),
+            _row("판매비와관리비", g("sga"), 1),
+            _row("영업이익", g("operating_income"), 0, "total"),
+            _row("기타수익", g("other_gains") or z, 1),
+            _row("기타비용", g("other_losses") or z, 1),
+            _row("금융수익", g("finance_income") or z, 1),
+            _row("금융비용", g("finance_costs") or z, 1)]
+    em = pl.get("equity_method_pl")
+    if em and any(em):
+        rows.append(_row("지분법손익", em, 1))
+    # 나머지(중단영업 전 기타 영업외 항목 등): 세전이익 − 위 항목들
+    oi, pt = g("operating_income"), g("pretax")
+    if pl.get("operating_income") and pl.get("pretax"):
+        calc = [None if a is None else a + (b or 0) - (c or 0) + (d or 0) - (e or 0) + (f or 0)
+                for a, b, c, d, e, f in zip(oi, g("other_gains") or z, g("other_losses") or z,
+                                            g("finance_income") or z, g("finance_costs") or z, em or z)]
+        rest = _sub(pt, calc)
+        if any(x for x in rest if x):
+            rows.append(_row("기타 영업외손익", rest, 1))
+    rows += [_row("법인세차감전이익", pt, 0, "sub"),
+             _row("법인세비용", g("income_tax"), 1),
+             _row("당기순이익", g("net_income"), 0, "total")]
+    if pl.get("net_income_owners") and pl["net_income_owners"] != pl["net_income"]:
+        rows.append(_row("지배주주 순이익", pl["net_income_owners"], 1))
+    return rows
+
+
+def cf_rows(cf):
+    n = len(cf["operating_cf"])
+    g = lambda k: cf.get(k) or [None] * n  # 없는 항목은 빈 칸("-")
+    ocf, capex = g("operating_cf"), g("capex")
+    rows = [_row("영업활동현금흐름", ocf, 0, "sub"),
+            _row("투자활동현금흐름", g("investing_cf"), 0, "sub"),
+            _row("유형자산 취득", capex, 1),
+            _row("재무활동현금흐름", g("financing_cf"), 0, "sub"),
+            _row("현금 순증감", g("cash_change"), 0, "total")]
+    if cf.get("capex"):
+        rows.append(_row("잉여현금흐름(FCF)",
+                         [None if a is None or b is None else a + b for a, b in zip(ocf, capex)], 0, "sub"))
+    return rows
+
+
+def ratio_rows(pl, bs):
+    def div(a, b):
+        return None if a is None or not b else round(a / b * 100, 1)
+    rev, gp, oi, ni = pl["revenue"], pl.get("gross_profit"), pl["operating_income"], pl["net_income"]
+    ni_o = pl.get("net_income_owners") or ni
+    eq_o = bs.get("equity_owners") or bs["equity"]
+    n = len(rev)
+    growth = [None] + [div((rev[i] or 0) - (rev[i - 1] or 0), rev[i - 1]) if rev[i] is not None else None
+                       for i in range(1, n)]
+    rows = [_row("매출성장률", growth, 0, "pct")]
+    if gp and any(x is not None for x in gp):
+        rows.append(_row("매출총이익률", [div(a, b) for a, b in zip(gp, rev)], 0, "pct"))
+    rows += [_row("영업이익률", [div(a, b) for a, b in zip(oi, rev)], 0, "pct"),
+             _row("순이익률", [div(a, b) for a, b in zip(ni, rev)], 0, "pct"),
+             _row("부채비율", [div(a, b) for a, b in zip(bs["liabilities"], bs["equity"])], 0, "pct"),
+             _row("ROE", [div(a, b) if b and b > 0 else None for a, b in zip(ni_o, eq_o)], 0, "pct")]
+    return rows
+
+
+def statement(fin):
+    a = fin["annual"]
+    return {
+        "years": fin["years"],
+        "fs_div": fin["fs_div"],  # CFS=연결, OFS=별도
+        "sections": [
+            {"title": "손익계산서", "rows": pl_rows(a["pl"])},
+            {"title": "재무상태표", "rows": bs_rows(a["bs"])},
+            {"title": "현금흐름", "rows": cf_rows(a["cf"])},
+            {"title": "주요 비율", "rows": ratio_rows(a["pl"], a["bs"])},
+        ],
+    }
+
+
+# ---------------------------------------------------------------- 보기 고르기
+def clean_name(name):
+    name = re.sub(r"\(주\)|㈜|주식회사|\(유\)|유한회사", "", name)
+    return " ".join(name.split()).strip()
+
+
+def pick_distractors(target, universe, caps, rng):
+    """같은 업종 + 시총 0.33~3배 우선 → 조건을 넓혀 가며 N_DISTRACTORS개."""
+    tcap = caps[target["stock_code"]]["mcap"]
+    tname = clean_name(target["corp_name"])
+    steps = [(3, 0.33, 3), (2, 0.33, 3), (3, 0.1, 10), (2, 0.1, 10), (0, 0.33, 3), (0, 0, float("inf"))]
+    chosen = []
+    for plen, lo, hi in steps:
+        cands = [c for c in universe
+                 if c["corp_code"] != target["corp_code"] and c not in chosen
+                 and clean_name(c["corp_name"]) != tname
+                 and (plen == 0 or c["induty_code"][:plen] == target["induty_code"][:plen])
+                 and lo <= caps[c["stock_code"]]["mcap"] / tcap <= hi]
+        rng.shuffle(cands)
+        chosen += cands[:N_DISTRACTORS - len(chosen)]
+        if len(chosen) == N_DISTRACTORS:
+            break
+    return chosen
+
+
+def load_ksic():
+    """업종코드 → 업종명. data/ksic.json 이 있으면 쓰고, 없으면 빈 dict(화면엔 코드만 표시)."""
+    p = DATA / "ksic.json"
+    return read_json(p) if p.exists() else {}
+
+
+def industry_name(code, ksic):
+    for n in range(len(code), 1, -1):  # 5자리 → 4 → 3 → 2 순으로 이름이 있는 것
+        if code[:n] in ksic:
+            return ksic[code[:n]]
+    return None
+
+
+def summary(c, fins, caps, ksic):
+    """정답 공개 후 비교 화면용 요약 (보기 각각)."""
+    mcap = caps[c["stock_code"]]["mcap"]
+    out = {"name": clean_name(c["corp_name"]), "industry_code": c["induty_code"],
+           "industry": industry_name(c["induty_code"], ksic),
+           "market": caps[c["stock_code"]]["market"], "mcap": mcap}
+    f = fins.get(c["corp_code"])
+    if f:
+        pl, bs, cf = f["annual"]["pl"], f["annual"]["bs"], f["annual"]["cf"]
+        last = lambda v: v[-1] if v else None
+        ni_o = last(pl.get("net_income_owners")) or last(pl["net_income"])
+        eq_o = last(bs.get("equity_owners")) or last(bs["equity"])
+        ratio = {r[0]: r for r in ratio_rows(pl, bs)}
+        lv1 = lambda r: [r[0], 1, r[2], r[3]]  # 비율은 들여쓰기
+        rows = [_row("매출액", pl["revenue"], 0, "sub"), lv1(ratio["매출성장률"])]
+        if "매출총이익률" in ratio:
+            rows.append(lv1(ratio["매출총이익률"]))
+        rows += [_row("영업이익", pl["operating_income"], 0, "sub"), lv1(ratio["영업이익률"]),
+                 _row("당기순이익", pl["net_income"], 0, "sub"), lv1(ratio["순이익률"])]
+        rows += [r for r in cf_rows(cf) if r[0] in ("영업활동현금흐름", "잉여현금흐름(FCF)")]
+        rows += [_row("자산총계", bs["assets"], 0, "sub"),
+                 _row("부채총계", bs["liabilities"], 0, "sub"), lv1(ratio["부채비율"]),
+                 _row("자본총계", bs["equity"], 0, "sub"), lv1(ratio["ROE"])]
+        out.update({
+            "years": f["years"], "fs_div": f["fs_div"], "rows": rows,
+            "per": round(mcap / ni_o, 1) if ni_o and ni_o > 0 else None,
+            "pbr": round(mcap / eq_o, 2) if eq_o and eq_o > 0 else None,
+        })
+    return out
+
+
+def make_question(target, fin, universe, caps, rng, fins, ksic):
+    options = pick_distractors(target, universe, caps, rng) + [target]
+    rng.shuffle(options)
+    answer = next(i for i, c in enumerate(options) if c["corp_code"] == target["corp_code"])
+    q = {"statement": statement(fin), "options": [clean_name(c["corp_name"]) for c in options]}
+    ans = {"answer_index": answer, "mcap": caps[target["stock_code"]]["mcap"],
+           "corp_name": clean_name(target["corp_name"]), "corp_code": target["corp_code"],
+           "reveal": [summary(c, fins, caps, ksic) for c in options]}
+    return q, ans
+
+
+def encode(obj):
+    raw = json.dumps(obj, ensure_ascii=False).encode("utf-8")
+    return base64.b64encode(bytes(b ^ XOR_KEY[i % len(XOR_KEY)] for i, b in enumerate(raw))).decode()
+
+
+# ---------------------------------------------------------------- 메인
+def answer_codes(ans_file):
+    """정답 파일의 회사 코드 목록 (하루 여러 문제 형식과 옛 1문제 형식 모두)."""
+    a = read_json(ans_file)
+    return [q["corp_code"] for q in a["questions"]] if "questions" in a else [a["corp_code"]]
+
+
+def recent_answer_codes(before, days):
+    codes = {}
+    for p in ANSWERS.glob("*.json"):
+        d = date.fromisoformat(p.stem)
+        if before - timedelta(days=days) <= d:
+            for code in answer_codes(p):
+                codes[code] = d
+    return codes
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--date", help="오늘의 문제 날짜 YYYY-MM-DD (기본: 내일 KST)")
+    ap.add_argument("--force", action="store_true", help="이미 있는 날짜 문제를 다시 만듦")
+    args = ap.parse_args()
+    qdate = date.fromisoformat(args.date) if args.date else (quiz_today() + timedelta(days=1))
+
+    corps = read_json(DATA / "corp_list.json")["included"]
+    fins = read_json(DATA / "financials.json")
+    mc = read_json(DATA / "market_cap.json")
+    caps, basdt = mc["caps"], mc["basDt"]
+
+    ksic = load_ksic()
+    # 보기 후보: 시총이 있고, 비교 화면에 보여줄 재무 데이터(필수 항목)가 있는 회사
+    universe = [c for c in corps if c["stock_code"] in caps and caps[c["stock_code"]]["mcap"] > 0
+                and (f := fins.get(c["corp_code"])) and f["complete"]]
+    eligible = [c for c in universe
+                if (f := fins.get(c["corp_code"])) and f["complete"] and f["bs_detail_ok"]
+                and (f["annual"]["pl"]["revenue"][-1] or 0) > 0]
+    print(f"보기 후보 {len(universe):,}개 / 출제 가능 {len(eligible):,}개, 시총 기준일 {basdt}")
+
+    # 1) 오늘의 문제 (문제·정답 모두 data/answers/에만 → upload_daily.py가 Supabase로. 공개 파일 없음)
+    ans_path = ANSWERS / f"{qdate}.json"
+    recent = recent_answer_codes(qdate, REPEAT_DAYS)
+    if ans_path.exists() and not args.force:
+        print(f"{qdate} 문제는 이미 있음 (다시 만들려면 --force)")
+    else:
+        if ans_path.exists():  # --force로 다시 만들 때는 기존 그날 회사를 이력에서 뺌
+            for code in answer_codes(ans_path):
+                recent.pop(code, None)
+        cands = [c for c in eligible if c["corp_code"] not in recent]
+        targets = sysrand.sample(cands, DAILY_COUNT)   # 서로 다른 회사 DAILY_COUNT개
+        anss = []
+        for target in targets:
+            q, ans = make_question(target, fins[target["corp_code"]], universe, caps, sysrand, fins, ksic)
+            anss.append({**ans, "question": q})   # question = 재무표 + 보기 (정답 없음)
+            recent[target["corp_code"]] = qdate
+        write_json(ans_path, {"quiz_date": str(qdate), "basDt": basdt, "questions": anss}, indent=1)
+        print(f"오늘의 문제 {qdate}: {len(anss)}문제 저장 data/answers/{qdate}.json (git 제외 → upload_daily.py)")
+
+    # 2) 연습 풀: 최근·예정 오늘의 문제 회사는 정답으로도, 보기로도 쓰지 않음
+    #    (연습 풀의 공개 정보로 오늘의 문제 정답을 역추적하지 못하게)
+    blocked = set(recent_answer_codes(qdate + timedelta(days=1), REPEAT_DAYS + 1))
+    p_universe = [c for c in universe if c["corp_code"] not in blocked]
+    pool = []
+    prng = random.Random()
+    for c in eligible:
+        if c["corp_code"] in blocked:
+            continue
+        q, ans = make_question(c, fins[c["corp_code"]], p_universe, caps, prng, fins, ksic)
+        pool.append({**q, "a": encode({"i": ans["answer_index"], "m": ans["mcap"], "n": ans["corp_name"],
+                                       "r": ans["reveal"]})})
+    prng.shuffle(pool)
+    # 휴대폰에서 한 번에 받는 양을 줄이려고 CHUNK문제씩 나눠 저장 (화면은 무작위 한 묶음만 받음)
+    pool_dir = DOCS / "pool"
+    for old in pool_dir.glob("p*.json"):
+        old.unlink()
+    chunks = [pool[i:i + CHUNK] for i in range(0, len(pool), CHUNK)]
+    for n, chunk in enumerate(chunks):
+        write_json(pool_dir / f"p{n:03d}.json", chunk, compact=True)
+    write_json(pool_dir / "index.json", {"basDt": basdt, "generated_at": now_kst().isoformat(timespec="seconds"),
+                                         "count": len(pool), "chunks": len(chunks)}, compact=True)
+    sizes = [p.stat().st_size for p in pool_dir.glob("p*.json")]
+    print(f"연습 풀 {len(pool):,}문제 (제외 {len(blocked)}개) → docs/pool/ {len(chunks)}개 파일, "
+          f"파일당 평균 {sum(sizes) / len(sizes) / 1e3:,.0f}KB, 전체 {sum(sizes) / 1e6:.1f}MB")
+
+
+if __name__ == "__main__":
+    main()

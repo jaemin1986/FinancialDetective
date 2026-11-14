@@ -1,0 +1,59 @@
+{
+  "root_tag": "result",
+  "item_tag": "list",
+  "total": 120001,
+  "listed_count": 4016,
+  "first_3": [
+    {
+      "corp_code": "00434003",
+      "corp_name": "다코",
+      "corp_eng_name": "Daco corporation",
+      "stock_code": "",
+      "modify_date": "20170630"
+    },
+    {
+      "corp_code": "00430964",
+      "corp_name": "굿앤엘에스",
+      "corp_eng_name": "Good & LS Co.,Ltd.",
+      "stock_code": "",
+      "modify_date": "20170630"
+    },
+    {
+      "corp_code": "00388953",
+      "corp_name": "크레디피아제이십오차유동화전문회사",
+      "corp_eng_name": "Credipia 25th Asset Securitization Specialty L.L.C",
+      "stock_code": "",
+      "modify_date": "20170630"
+    }
+  ],
+  "listed_first_3": [
+    {
+      "corp_code": "00260985",
+      "corp_name": "한빛네트",
+      "corp_eng_name": "HanbitNet, Inc.",
+      "stock_code": "036720",
+      "modify_date": "20170630"
+    },
+    {
+      "corp_code": "00264529",
+      "corp_name": "엔플렉스",
+      "corp_eng_name": "Nplex,Inc.",
+      "stock_code": "040130",
+      "modify_date": "20170630"
+    },
+    {
+      "corp_code": "00358545",
+      "corp_name": "동서정보기술",
+      "corp_eng_name": "Dong Seo Information Technology Co., Ltd.",
+      "stock_code": "055000",
+      "modify_date": "20170630"
+    }
+  ],
+  "sample_target": {
+    "corp_code": "00126380",
+    "corp_name": "삼성전자",
+    "corp_eng_name": "SAMSUNG ELECTRONICS CO,.LTD",
+    "stock_code": "005930",
+    "modify_date": "20251201"
+  }
+}

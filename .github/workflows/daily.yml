@@ -1,0 +1,102 @@
+# 매일 KST 15:00: 시가총액 갱신 → 내일 문제 생성·Supabase 업로드 → 연습 풀 생성 → 사이트 배포
+# 생성 파일(연습 풀)과 데이터(재무제표 등)는 저장소에 커밋하지 않는다.
+#  - 데이터는 Actions 캐시에 보관 (없으면 첫 실행 때 DART에서 다시 수집, 1시간 안팎)
+#  - 사이트는 docs/ 폴더를 그대로 GitHub Pages에 배포 (actions/deploy-pages)
+name: daily
+
+on:
+  schedule:
+    - cron: "0 6 * * *"        # UTC 06:00 = KST 15:00 (시가총액은 영업일 다음 날 13시 이후 갱신)
+  workflow_dispatch:           # Actions 탭에서 수동 실행
+    inputs:
+      refresh_financials:
+        description: "상장사 목록·재무제표 다시 수집 (오래 걸림)"
+        type: boolean
+        default: false
+  push:
+    branches: [main]
+    paths: ["docs/**", "scripts/**", ".github/workflows/**"]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: daily
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      DART_API_KEY: ${{ secrets.DART_API_KEY }}
+      DATA_GO_KR_API_KEY: ${{ secrets.DATA_GO_KR_API_KEY }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      PYTHONIOENCODING: utf-8
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: 데이터 캐시 불러오기
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            data/raw
+            data/answers
+            data/corp_list.json
+            data/financials.json
+            data/financials_report.json
+            data/market_cap.json
+          key: data-${{ github.run_id }}
+          restore-keys: data-
+
+      - name: 데이터 수집 + 문제 생성 + 업로드
+        run: |
+          python scripts/daily_job.py ${{ inputs.refresh_financials && '--refresh-financials' || '' }}
+
+      - name: 오래된 시가총액 원본 정리 (최근 5일치만 보관)
+        if: always()
+        run: ls -1t data/raw/mcap/*.json 2>/dev/null | tail -n +6 | xargs -r rm -f
+
+      - name: 데이터 캐시 저장
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            data/raw
+            data/answers
+            data/corp_list.json
+            data/financials.json
+            data/financials_report.json
+            data/market_cap.json
+          key: data-${{ github.run_id }}
+
+      - name: 사이트 파일 확인 (비밀 키·정답이 없어야 함)
+        run: |
+          test -f docs/pool/index.json
+          ! grep -rl "sb_secret_" docs/
+          test ! -d docs/daily || test -z "$(ls -A docs/daily)"
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

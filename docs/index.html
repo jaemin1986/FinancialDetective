@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FinancialDetective</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <button type="button" class="logo" id="btnHome">🔍 FinancialDetective</button>
+    <div class="top-right">
+      <span class="mode" id="modeLabel" hidden></span>
+      <button type="button" class="me" id="btnMe" hidden></button>
+    </div>
+  </header>
+
+  <main id="app">
+    <!-- 시작 화면 -->
+    <section id="screenStart" class="screen">
+      <div class="card intro">
+        <h2>재무제표만 보고 회사를 맞혀 보세요</h2>
+        <ol>
+          <li><b>오늘의 문제</b> — 하루 3문제, 팀원 모두 같은 문제. 3문제 점수 합계로 랭킹</li>
+          <li><b>회사 맞히기</b> — 재무제표를 보고 4개 보기 중 고르기 (기회 2번)</li>
+          <li><b>시가총액 맞히기</b> — 최대 5번, 실제값 ±10% 이내면 정답. 틀리면 UP⬆ / DOWN⬇ 힌트</li>
+        </ol>
+        <p class="muted small">문제당 점수: 회사 40/20 + 시총 60·48·36·24·12 + 오차 3% 이내 보너스 10 (만점 110)</p>
+      </div>
+
+      <!-- 로그인 전 -->
+      <div class="card" id="startGuest" hidden>
+        <h3>오늘의 문제 · 팀 랭킹</h3>
+        <p class="muted small">팀원 모두 같은 문제를 하루 한 번 풀고 랭킹을 겨룹니다.</p>
+        <div class="stack">
+          <button class="btn primary" id="btnGoSignup">처음이에요</button>
+          <button class="btn" id="btnGoLogin">이미 닉네임이 있어요</button>
+        </div>
+      </div>
+
+      <!-- 로그인 후 -->
+      <div class="card" id="startMember" hidden>
+        <h3><span id="helloName"></span>님, 오늘의 문제</h3>
+        <p class="muted small" id="todayInfo"></p>
+        <div class="stack">
+          <button class="btn primary" id="btnDaily">오늘의 문제 풀기</button>
+          <button class="btn" id="btnRank">오늘의 랭킹</button>
+        </div>
+        <div class="stats" id="myStats"></div>
+      </div>
+
+      <div class="card">
+        <h3>연습 모드</h3>
+        <p class="muted small" id="poolInfo">문제를 불러오는 중…</p>
+        <button class="btn" id="btnStart" disabled>연습만 할래요</button>
+        <p class="muted small">연습 모드는 닉네임 없이 할 수 있고, 랭킹에 반영되지 않습니다.</p>
+      </div>
+    </section>
+
+    <!-- 가입 (4단계) -->
+    <section id="screenSignup" class="screen" hidden>
+      <div class="card">
+        <p class="steps"><span data-s="1">① 팀 코드</span> · <span data-s="2">② 닉네임</span> · <span data-s="3">③ PIN</span> · <span data-s="4">④ 확인</span></p>
+
+        <form id="signupStep1" class="step">
+          <h3>팀 코드를 입력해 주세요</h3>
+          <p class="muted small">관리자에게 받은 팀 코드입니다.</p>
+          <input id="teamCode" class="field" autocomplete="off" placeholder="팀 코드">
+          <p class="msg" id="msg1"></p>
+          <button class="btn primary" type="submit">다음</button>
+        </form>
+
+        <form id="signupStep2" class="step" hidden>
+          <h3>닉네임을 정해 주세요</h3>
+          <p class="muted small">2~10자 · 한글·영문·숫자·밑줄(_) · 랭킹에 이 이름으로 표시됩니다.</p>
+          <input id="nickInput" class="field" autocomplete="off" maxlength="10" placeholder="닉네임">
+          <p class="msg" id="msg2">&nbsp;</p>
+          <button class="btn primary" type="submit" id="btnNick" disabled>다음</button>
+        </form>
+
+        <form id="signupStep3" class="step" hidden>
+          <h3>PIN 4자리를 정해 주세요</h3>
+          <p class="pin-notice">게임용 PIN입니다. 실제 쓰는 비밀번호를 넣지 마세요.</p>
+          <input id="pin1" class="field pin" type="password" inputmode="numeric" maxlength="4" autocomplete="new-password" placeholder="PIN 4자리">
+          <input id="pin2" class="field pin" type="password" inputmode="numeric" maxlength="4" autocomplete="new-password" placeholder="한 번 더 입력">
+          <p class="msg" id="msg3"></p>
+          <button class="btn primary" type="submit">다음</button>
+        </form>
+
+        <div id="signupStep4" class="step" hidden>
+          <h3>「<span id="confirmNick"></span>」으로 시작할까요?</h3>
+          <p class="muted small">랭킹에 이 이름으로 표시됩니다. (닉네임은 나중에 30일에 한 번 바꿀 수 있어요)</p>
+          <p class="pin-notice">게임용 PIN입니다. 실제 쓰는 비밀번호를 넣지 마세요.</p>
+          <p class="msg" id="msg4"></p>
+          <div class="row">
+            <button class="btn" type="button" id="btnSignupEdit">수정</button>
+            <button class="btn primary" type="button" id="btnSignupGo">시작</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 로그인 -->
+    <section id="screenLogin" class="screen" hidden>
+      <form class="card" id="loginForm">
+        <h3>닉네임과 PIN을 입력해 주세요</h3>
+        <input id="loginNick" class="field" autocomplete="username" maxlength="10" placeholder="닉네임">
+        <input id="loginPin" class="field pin" type="password" inputmode="numeric" maxlength="4" autocomplete="current-password" placeholder="PIN 4자리">
+        <p class="pin-notice">게임용 PIN입니다. 실제 쓰는 비밀번호를 넣지 마세요.</p>
+        <p class="msg" id="msgLogin"></p>
+        <button class="btn primary" type="submit">로그인</button>
+        <p class="muted small">PIN을 잊었다면 관리자에게 임시 PIN을 받으세요.</p>
+      </form>
+    </section>
+
+    <!-- PIN 변경 (임시 PIN 받은 경우 필수 / 설정에서) -->
+    <section id="screenPin" class="screen" hidden>
+      <form class="card" id="pinForm">
+        <h3 id="pinTitle">PIN 변경</h3>
+        <p class="muted small" id="pinDesc"></p>
+        <input id="pinOld" class="field pin" type="password" inputmode="numeric" maxlength="4" autocomplete="current-password" placeholder="현재 PIN (임시 PIN)">
+        <input id="pinNew1" class="field pin" type="password" inputmode="numeric" maxlength="4" autocomplete="new-password" placeholder="새 PIN 4자리">
+        <input id="pinNew2" class="field pin" type="password" inputmode="numeric" maxlength="4" autocomplete="new-password" placeholder="새 PIN 한 번 더">
+        <p class="pin-notice">게임용 PIN입니다. 실제 쓰는 비밀번호를 넣지 마세요.</p>
+        <p class="msg" id="msgPin"></p>
+        <button class="btn primary" type="submit">PIN 바꾸기</button>
+      </form>
+    </section>
+
+    <!-- 설정 -->
+    <section id="screenSettings" class="screen" hidden>
+      <form class="card" id="nickForm">
+        <h3>닉네임 변경</h3>
+        <p class="muted small">30일에 한 번 바꿀 수 있어요. 지난 기록은 그대로 유지되고, 랭킹에는 새 닉네임으로 표시됩니다.</p>
+        <input id="newNick" class="field" autocomplete="off" maxlength="10" placeholder="새 닉네임">
+        <p class="msg" id="msgNick">&nbsp;</p>
+        <button class="btn primary" type="submit">닉네임 바꾸기</button>
+      </form>
+      <div class="card">
+        <h3>PIN 변경</h3>
+        <button class="btn" id="btnGoPin">PIN 바꾸기</button>
+      </div>
+      <div class="card">
+        <h3>로그아웃</h3>
+        <p class="muted small">이 기기에서 로그아웃합니다. 다시 들어올 때는 닉네임과 PIN이 필요합니다. 다른 닉네임을 새로 만들려면 로그아웃 후 "처음이에요"를 누르세요.</p>
+        <button class="btn" id="btnLogout">로그아웃</button>
+      </div>
+    </section>
+
+    <!-- 문제 화면 (Stage 1 + Stage 2) — 연습·오늘의 문제 공용 -->
+    <section id="screenQuiz" class="screen" hidden>
+      <div class="card">
+        <div class="statement-head">
+          <span><span id="fsDiv" class="tag"></span> <span id="quizTitle" class="muted small"></span></span>
+          <span class="muted small">단위: 억원</span>
+        </div>
+        <div id="statement"></div>
+      </div>
+
+      <div class="card" id="stage1">
+        <h3>이 회사는 어디일까요?</h3>
+        <p class="muted small" id="stage1Msg">기회 2번</p>
+        <div id="options" class="options"></div>
+      </div>
+
+      <div class="card" id="stage2" hidden>
+        <h3>이 회사의 시가총액은?</h3>
+        <p class="muted small">기준일 <b id="basDt"></b> 종가 · 최대 5번 · ±10% 이내면 정답</p>
+        <form id="guessForm" class="guess">
+          <input id="guessInput" inputmode="decimal" autocomplete="off" placeholder="예: 3450 (억원)">
+          <span class="unit">억원</span>
+          <button class="btn primary" type="submit" id="btnGuess">제출</button>
+        </form>
+        <p class="pretty" id="guessPretty">&nbsp;</p>
+        <ol id="guessList" class="guess-list"></ol>
+      </div>
+    </section>
+
+    <!-- 결과 화면 -->
+    <section id="screenResult" class="screen" hidden>
+      <div class="card result">
+        <p class="score"><span id="scoreNum">0</span>점</p>
+        <p id="rankLine" class="rank-line" hidden></p>
+        <p id="resultAnswer"></p>
+        <p class="summary" id="summaryLine"></p>
+        <div class="row">
+          <button class="btn" id="btnCopy">결과 복사</button>
+          <button class="btn primary" id="btnNext">다음 문제</button>
+        </div>
+      </div>
+      <div class="card" id="resultRank" hidden>
+        <h3>오늘의 랭킹</h3>
+        <div id="resultRankBody"></div>
+        <button class="btn" id="btnRank2">주간·월간 랭킹 보기</button>
+      </div>
+      <div class="card">
+        <div class="tabs" id="reviewTabs" hidden></div>
+        <p id="reviewAnswer" class="review-answer"></p>
+        <h3>보기 4개 비교</h3>
+        <p class="muted small">단위: 억원 · 시가총액 기준일 <span id="basDt2"></span> · ★ 정답</p>
+        <div id="compare"></div>
+      </div>
+      <div class="card">
+        <h3>문제로 나온 재무제표</h3>
+        <div id="statementAgain"></div>
+      </div>
+    </section>
+
+    <!-- 랭킹 화면 -->
+    <section id="screenRank" class="screen" hidden>
+      <div class="card">
+        <div class="tabs">
+          <button type="button" class="tab" data-tab="today">오늘</button>
+          <button type="button" class="tab" data-tab="yesterday">어제</button>
+          <button type="button" class="tab" data-tab="week">주간</button>
+          <button type="button" class="tab" data-tab="month">월간</button>
+        </div>
+        <div id="rankBody"></div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

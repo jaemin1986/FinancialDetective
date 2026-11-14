@@ -1,0 +1,175 @@
+:root {
+  --bg: #f5f6f8;
+  --card: #fff;
+  --text: #1d2330;
+  --muted: #6b7280;
+  --line: #e5e7eb;
+  --accent: #2563eb;
+  --good: #16a34a;
+  --bad: #dc2626;
+  --neg: #d14343;
+  --sub: #f3f6fb;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.top {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 16px; background: var(--card); border-bottom: 1px solid var(--line);
+  position: sticky; top: 0; z-index: 10;
+}
+.logo { font: inherit; font-size: 17px; font-weight: 700; margin: 0; padding: 0; border: 0; background: none; color: var(--text); cursor: pointer; }
+.top-right { display: flex; gap: 6px; align-items: center; }
+.me { font: inherit; font-size: 13px; border: 1px solid var(--accent); color: var(--accent); background: #fff;
+      border-radius: 99px; padding: 3px 10px; cursor: pointer; font-weight: 600; }
+.mode { font-size: 12px; color: var(--muted); border: 1px solid var(--line); border-radius: 99px; padding: 2px 10px; }
+
+main { max-width: 760px; margin: 0 auto; padding: 12px; }
+.card { background: var(--card); border-radius: 12px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+h2 { font-size: 19px; margin: 4px 0 10px; }
+h3 { font-size: 16px; margin: 0 0 6px; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+.intro ol { padding-left: 20px; }
+
+.btn {
+  font: inherit; border: 1px solid var(--line); background: #fff; border-radius: 10px;
+  padding: 10px 16px; cursor: pointer;
+}
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.btn:disabled { opacity: .5; cursor: default; }
+.row { display: flex; gap: 8px; justify-content: center; }
+.stack { display: grid; gap: 8px; margin: 8px 0; }
+
+/* 가입·로그인 */
+.field {
+  display: block; width: 100%; font: inherit; font-size: 17px; padding: 10px 12px; margin: 6px 0;
+  border: 1px solid var(--line); border-radius: 10px;
+}
+.field:focus, .guess input:focus { outline: 2px solid #bfdbfe; border-color: var(--accent); }
+.field.pin { letter-spacing: 6px; }
+.step .btn.primary { width: 100%; margin-top: 4px; }
+#loginForm .btn.primary, #pinForm .btn.primary, #nickForm .btn.primary { width: 100%; }
+.steps { font-size: 12px; color: var(--muted); margin: 0 0 10px; }
+.steps span.on { color: var(--accent); font-weight: 700; }
+.pin-notice { font-size: 13px; background: #fff7ed; color: #9a3412; border-radius: 8px; padding: 6px 10px; margin: 6px 0; }
+.msg { font-size: 13px; min-height: 1.5em; margin: 4px 2px; color: var(--muted); }
+.msg.ok { color: var(--good); }
+.msg.bad { color: var(--bad); }
+
+/* 내 기록 */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 6px; margin-top: 10px; }
+.stats div { background: var(--sub); border-radius: 8px; padding: 6px; text-align: center; display: flex; flex-direction: column; }
+.stats span { font-size: 11px; color: var(--muted); }
+.stats b { font-size: 15px; }
+
+/* 랭킹 */
+table.rank { border-collapse: collapse; width: 100%; font-size: 14px; font-variant-numeric: tabular-nums; }
+table.rank th { font-size: 12px; color: var(--muted); font-weight: 600; text-align: center; padding: 4px; border-bottom: 1px solid var(--line); }
+table.rank td { text-align: center; padding: 6px 4px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+table.rank td.nick { text-align: left; font-weight: 600; }
+table.rank td.num { text-align: right; }
+table.rank tr.mine td { background: #eff6ff; }
+.banner { background: #fefce8; border-radius: 8px; padding: 6px 10px; font-size: 14px; margin: 6px 0; }
+.review-answer { font-size: 15px; margin: 4px 0 12px; }
+#btnRank2 { width: 100%; margin-top: 8px; }
+.rank-line { font-size: 18px; font-weight: 700; color: var(--accent); margin: 0 0 6px; }
+
+/* 재무표 */
+.statement-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.tag { font-size: 12px; background: var(--sub); color: var(--accent); border-radius: 6px; padding: 2px 8px; font-weight: 600; }
+.tabs { display: flex; gap: 4px; margin-bottom: 6px; }
+.tab {
+  flex: 1; font: inherit; font-size: 14px; padding: 7px 4px; border: 1px solid var(--line);
+  background: #fff; border-radius: 8px; color: var(--muted); cursor: pointer;
+}
+.tab.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+.tbl-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 4px; }
+/* 표는 카드 폭에 꽉 채우고, 항목명 칸은 글자 길이만큼만(width:1%) → 남는 폭은 숫자 칸 3개에 고르게 */
+table.fin { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; font-size: 14px; }
+table.fin th, table.fin td { padding: 4px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+table.fin td.label { width: 1%; padding-right: 8px; }
+table.fin tr.sec td.label { width: auto; }
+table.fin th { font-size: 12px; color: var(--muted); font-weight: 600; text-align: right; }
+table.fin th:first-child { text-align: left; }
+table.fin td.num { text-align: right; }
+table.fin td.label { position: sticky; left: 0; background: var(--card); }
+table.fin .sec td { background: var(--sub); font-weight: 700; color: var(--accent); }
+table.fin tr.sub td { font-weight: 600; }
+table.fin tr.total td { font-weight: 700; border-bottom: 2px solid #cbd5e1; }
+table.fin tr.lv1 td.label { padding-left: 18px; color: #374151; }
+table.fin td.neg { color: var(--neg); }
+table.fin tr.sub td.label, table.fin tr.total td.label { background: var(--card); }
+/* 최신 분기(TTM) 열: 옅은 배경으로 연간 열과 구분 */
+table.fin th.ttm { color: var(--accent); line-height: 1.15; }
+table.fin th.ttm small { font-weight: 400; font-size: 10px; }
+table.fin td.ttm, table.fin th.ttm { background: #f5f8ff; border-left: 1px dashed #c7d2fe; }
+table.fin td.ph { color: #c0c4cc; text-align: center; }
+.cum-title { font-size: 13px; font-weight: 700; color: var(--accent); margin: 12px 0 2px; }
+
+/* 보기 */
+.options { display: grid; gap: 8px; }
+.opt {
+  font: inherit; text-align: left; padding: 12px 14px; border-radius: 10px;
+  border: 1px solid var(--line); background: #fff; cursor: pointer;
+}
+.opt:hover:not(:disabled) { border-color: var(--accent); }
+.opt.wrong { border-color: var(--bad); color: var(--bad); text-decoration: line-through; }
+.opt.right { border-color: var(--good); background: #ecfdf3; color: var(--good); font-weight: 700; }
+.opt:disabled { cursor: default; }
+
+/* 시총 입력 */
+.guess { display: flex; gap: 6px; align-items: center; }
+.guess input {
+  flex: 1; min-width: 0; font: inherit; font-size: 18px; padding: 10px 12px;
+  border: 1px solid var(--line); border-radius: 10px; text-align: right; font-variant-numeric: tabular-nums;
+}
+.unit { color: var(--muted); }
+.pretty { margin: 6px 2px; color: var(--accent); font-weight: 600; min-height: 1.5em; text-align: right; }
+.guess-list { padding-left: 22px; margin: 6px 0 0; font-variant-numeric: tabular-nums; }
+.guess-list li { padding: 3px 0; }
+.hint-up { color: var(--bad); font-weight: 700; }
+.hint-down { color: var(--accent); font-weight: 700; }
+.hint-hit { color: var(--good); font-weight: 700; }
+
+/* 결과 */
+.result { text-align: center; }
+.score { font-size: 40px; font-weight: 800; margin: 4px 0; }
+.summary { font-size: 13px; background: var(--sub); border-radius: 8px; padding: 8px; word-break: keep-all; }
+/* 보기 4개 비교 카드 */
+.cmp-card { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; }
+.cmp-card.answer { border: 2px solid var(--good); }
+.cmp-card.answer .keystats { background: #ecfdf3; }
+.cmp-head { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.cmp-name { font-weight: 700; font-size: 16px; }
+.tags { display: flex; gap: 4px; }
+.industry { font-size: 12px; color: var(--muted); margin: 2px 0 8px; }
+.keystats {
+  display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 6px; margin-bottom: 6px;
+  background: var(--sub); border-radius: 8px; padding: 6px 8px; font-variant-numeric: tabular-nums;
+}
+.keystats div { display: flex; flex-direction: column; align-items: center; }
+.keystats span { font-size: 11px; color: var(--muted); }
+.keystats b { font-size: 15px; }
+/* 좁은 화면(휴대폰) */
+@media (max-width: 480px) {
+  main { padding: 8px; }
+  .card { padding: 10px; border-radius: 10px; }
+  table.fin { font-size: 13px; }
+  table.fin th, table.fin td { padding: 3px 4px; }
+  table.fin tr.lv1 td.label { padding-left: 10px; }
+  .cmp-card { padding: 8px; }
+}
+
+.toast {
+  position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
+  background: #111827; color: #fff; padding: 8px 14px; border-radius: 8px; font-size: 14px; z-index: 20;
+}

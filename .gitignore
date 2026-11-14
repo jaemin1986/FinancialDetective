@@ -1,0 +1,31 @@
+# 비밀 키 (절대 커밋 금지)
+.env
+.env.*
+!.env.example
+
+# API 원본 캐시
+data/raw/
+
+# 연습 문제 풀: 매일 다시 생성되는 약 14MB 파일 → 커밋하면 저장소가 계속 커짐 (배포 방식은 Phase 5에서 결정)
+docs/pool/
+
+# 오늘의 문제 정답 (공개 저장소에 올리면 안 됨 → Supabase answers 테이블로만)
+data/answers/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# 에디터/OS
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
+
+# 공개 저장소에 올리지 않는 데이터 (정답 역추적 방지) — Actions 캐시에 보관
+data/financials.json
+data/financials_report.json
+data/corp_list.json
+data/market_cap.json
+docs/daily/
