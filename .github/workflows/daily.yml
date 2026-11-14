@@ -1,6 +1,6 @@
 # 매일 KST 15:00: 시가총액 갱신 → 내일 문제 생성·Supabase 업로드 → 연습 풀 생성 → 사이트 배포
 # 생성 파일(연습 풀)과 데이터(재무제표 등)는 저장소에 커밋하지 않는다.
-#  - 데이터는 Actions 캐시에 보관 (없으면 첫 실행 때 DART에서 다시 수집, 1시간 안팎)
+#  - 데이터는 Actions 캐시에 보관 (없으면 첫 실행 때 DART에서 다시 수집, 3시간 이상 걸릴 수 있음)
 #  - 사이트는 docs/ 폴더를 그대로 GitHub Pages에 배포 (actions/deploy-pages)
 name: daily
 
@@ -29,7 +29,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 350   # 첫 수집은 해외 서버에서 DART를 수천 번 호출해 3시간 넘게 걸릴 수 있음 (끊겨도 캐시로 이어 받음)
     env:
       DART_API_KEY: ${{ secrets.DART_API_KEY }}
       DATA_GO_KR_API_KEY: ${{ secrets.DATA_GO_KR_API_KEY }}
