@@ -264,11 +264,11 @@ anon이 실행할 수 있는 RPC 함수(전부 `SECURITY DEFINER`):
   - 공개 전 git 기록을 새로 시작(과거 커밋에 financials.json·문제 파일). 옛 기록은 로컬 `backup-before-public` 브랜치에만
   - 연습 풀(약 14MB)을 매일 다시 만들어 커밋하면 저장소가 1년에 수 GB로 커짐 → **Actions가 만든 파일을 커밋하지 않고 Pages로 바로 배포**(actions/deploy-pages)하는 방식 검토
   - `data/financials.json`(회사명+재무)이 공개 저장소에 있으면 오늘의 문제 정답을 쉽게 역추적할 수 있음 → 저장소에서 빼고 Actions 캐시 등으로 대체 검토
-- [ ] GitHub 저장소 생성, `docs/` 폴더로 GitHub Pages 켜기
-- [ ] GitHub Secrets에 비밀 키 등록 (DART, 공공데이터, Supabase service_role)
-- [ ] Actions: 매일 **KST 15:00(UTC 06:00)**에 다음 날 문제 생성 → `answers` 업로드 → 연습 풀 생성 → Pages 배포 (`.github/workflows/daily.yml`, `scripts/daily_job.py`)
+- [x] GitHub 저장소 생성(공개, jaemin1986/FinancialDetective), Pages 소스 = GitHub Actions — https://jaemin1986.github.io/FinancialDetective/
+- [x] GitHub Secrets에 비밀 키 등록 (DART, 공공데이터, Supabase service_role)
+- [x] Actions: 매일 **KST 15:00(UTC 06:00)**에 다음 날 문제 생성 → `answers` 업로드 → 연습 풀 생성 → Pages 배포 (`.github/workflows/daily.yml`, `scripts/daily_job.py`) — 2026-11-15 첫 성공(첫 수집은 3시간 초과로 끊겨 제한 시간 350분으로 늘리고 캐시로 이어 받음)
 - [ ] 실패하면 알 수 있게: Actions 실패 시 이메일 알림(GitHub 기본 기능) 확인
-- [ ] `README.md`: 팀원용 사용법 (링크, 팀 코드 받는 법, 휴대폰 홈 화면에 추가하는 법)
+- [x] `README.md`: 팀원용 사용법 (링크, 팀 코드 받는 법, 휴대폰 홈 화면에 추가하는 법)
 
 ### Phase 6 — 선택 확장 (나중에)
 - [x] 주간·월간 랭킹 (누적 점수) — Phase 4에서 구현
