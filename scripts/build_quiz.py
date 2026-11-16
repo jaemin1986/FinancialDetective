@@ -22,6 +22,9 @@ from datetime import date, timedelta
 
 from common import ROOT, DATA, read_json, write_json, now_kst, quiz_today
 from fin_extract import BS_ITEMS
+from fetch_market_cap import year_end_caps
+
+YE_CAPS = {}  # 연도 → 그해 마지막 거래일 시총 (main에서 채움)
 
 DOCS = ROOT / "docs"
 ANSWERS = DATA / "answers"
@@ -210,7 +213,11 @@ def summary(c, fins, caps, ksic):
         eq_o = last(bs.get("equity_owners")) or last(bs["equity"])
         ratio = {r[0]: r for r in ratio_rows(pl, bs)}
         lv1 = lambda r: [r[0], 1, r[2], r[3]]  # 비율은 들여쓰기
-        rows = [_row("매출액", pl["revenue"], 0, "sub"), lv1(ratio["매출성장률"])]
+        # 연말 시가총액: 결산월이 12월인 회사만 (그 외는 결산일과 시점이 달라 "-")
+        dec = c.get("acc_mt", "12") == "12"
+        ye = [YE_CAPS.get(y, {}).get("caps", {}).get(c["stock_code"]) if dec else None for y in f["years"]]
+        rows = [_row("시가총액(연말)", ye, 0, "sub"),
+                _row("매출액", pl["revenue"], 0, "sub"), lv1(ratio["매출성장률"])]
         if "매출총이익률" in ratio:
             rows.append(lv1(ratio["매출총이익률"]))
         rows += [_row("영업이익", pl["operating_income"], 0, "sub"), lv1(ratio["영업이익률"]),
@@ -271,10 +278,14 @@ def main():
     fins = read_json(DATA / "financials.json")
     mc = read_json(DATA / "market_cap.json")
     caps, basdt = mc["caps"], mc["basDt"]
+    for y in sorted({y for f in fins.values() for y in f.get("years", [])}):
+        YE_CAPS[y] = year_end_caps(y)  # 처음 한 번만 API 호출(연도당 약 4건), 이후 캐시
 
     ksic = load_ksic()
     # 보기 후보: 시총이 있고, 비교 화면에 보여줄 재무 데이터(필수 항목)가 있는 회사
-    universe = [c for c in corps if c["stock_code"] in caps and caps[c["stock_code"]]["mcap"] > 0
+    # 12월 결산 회사만 (그 외 28개는 연도·분기 열의 기간이 달라 정답·보기 모두에서 제외, 2026-11-16 결정)
+    universe = [c for c in corps if c.get("acc_mt") == "12"
+                and c["stock_code"] in caps and caps[c["stock_code"]]["mcap"] > 0
                 and (f := fins.get(c["corp_code"])) and f["complete"]]
     eligible = [c for c in universe
                 if (f := fins.get(c["corp_code"])) and f["complete"] and f["bs_detail_ok"]

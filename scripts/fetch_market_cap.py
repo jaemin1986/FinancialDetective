@@ -46,6 +46,44 @@ def fetch_day(basdt):
     return rows
 
 
+def year_end_caps(year):
+    """그해 마지막 거래일의 전 종목 시가총액 {"basDt", "caps": {종목코드: 원}}.
+    12/31부터 하루씩 거슬러 올라가 데이터가 있는 첫날을 쓴다. 결과는 data/raw/mcap_ye/<연도>.json 에 캐시
+    (매일 정리하는 data/raw/mcap/ 와 분리)."""
+    from datetime import date, timedelta
+    path = RAW / "mcap_ye" / f"{year}.json"
+    if path.exists():
+        return read_json(path)
+    d = date(year, 12, 31)
+    for _ in range(10):
+        bas = d.strftime("%Y%m%d")
+        body = data_go_get(OP, {"basDt": bas, "numOfRows": 1, "pageNo": 1})
+        if int(body.get("totalCount") or 0) > 0:
+            break
+        d -= timedelta(days=1)
+    else:
+        raise SystemExit(f"[오류] {year}년 마지막 거래일을 찾지 못함")
+    rows, page, total = [], 1, None
+    while total is None or len(rows) < total:
+        body = data_go_get(OP, {"basDt": bas, "numOfRows": PAGE, "pageNo": page})
+        total = int(body.get("totalCount") or 0)
+        got = items_of(body)
+        if not got:
+            break
+        rows += got
+        page += 1
+    caps = {}
+    for r in rows:
+        try:
+            caps[r["srtnCd"]] = int(r["mrktTotAmt"])
+        except (KeyError, ValueError):
+            continue
+    out = {"basDt": bas, "caps": caps}
+    write_json(path, out)
+    print(f"{year}년 마지막 거래일 {bas}: {len(caps):,}종목")
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--date", help="기준일 YYYYMMDD (기본: 최신)")
