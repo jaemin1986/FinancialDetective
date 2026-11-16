@@ -267,7 +267,7 @@ anon이 실행할 수 있는 RPC 함수(전부 `SECURITY DEFINER`):
 - [x] GitHub 저장소 생성(공개, jaemin1986/FinancialDetective), Pages 소스 = GitHub Actions — https://jaemin1986.github.io/FinancialDetective/
 - [x] GitHub Secrets에 비밀 키 등록 (DART, 공공데이터, Supabase service_role)
 - [x] Actions: 매일 **KST 15:00(UTC 06:00)**에 다음 날 문제 생성 → `answers` 업로드 → 연습 풀 생성 → Pages 배포 (`.github/workflows/daily.yml`, `scripts/daily_job.py`) — 2026-11-15 첫 성공(첫 수집은 3시간 초과로 끊겨 제한 시간 350분으로 늘리고 캐시로 이어 받음)
-- [ ] 실패하면 알 수 있게: Actions 실패 시 이메일 알림(GitHub 기본 기능) 확인
+- [x] 실패하면 알 수 있게: Actions 실패 시 이메일 알림(GitHub 기본 기능) 확인 — 2026-11-15 첫 실행 실패 때 메일 수신 확인
 - [x] `README.md`: 팀원용 사용법 (링크, 팀 코드 받는 법, 휴대폰 홈 화면에 추가하는 법)
 - [ ] 팀원 초대 전 테스트 닉네임·기록 정리(`admin.py delete` / `reset-scores --all`) — **3Q 재무제표 반영이 끝난 뒤** 진행(2026-11-16 결정, 그때까지 사용자가 시총 표시 점검)
 
