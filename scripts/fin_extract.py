@@ -182,7 +182,8 @@ PL_ITEMS = [
     dict(key="income_tax", label="법인세비용", alts=[["ifrs-full_IncomeTaxExpenseContinuingOperations"]],
          names=["법인세비용", "법인세비용(수익)"]),
     dict(key="net_income", label="당기순이익", alts=[["ifrs-full_ProfitLoss"]],
-         names=["당기순이익", "당기순이익(손실)"]),
+         names=["당기순이익", "당기순이익(손실)", "분기순이익", "분기순이익(손실)",
+                "반기순이익", "반기순이익(손실)"]),
     dict(key="net_income_owners", label="지배주주 순이익",
          alts=[["ifrs-full_ProfitLossAttributableToOwnersOfParent"]], names=[]),
 ]

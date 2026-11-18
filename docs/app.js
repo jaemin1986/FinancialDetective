@@ -13,9 +13,6 @@ const MAX_GUESSES = 5;
 const TOLERANCE = 0.10;
 const BONUS_TOLERANCE = 0.03;               // 맞힌 입력의 오차율이 3% 이내면
 const BONUS_POINTS = 10;                    // 정확도 보너스 (만점 110)
-// 미리보기: 분기 데이터(누적 열 + 누적 비교표)가 들어갈 자리를 빈 칸으로 보여준다.
-// 실제 분기 데이터가 들어오면(st.ttm 존재) 이 설정과 무관하게 실제 값을 쓴다.
-const PREVIEW_TTM = { label: "26.3Q", period: "1~9월 누적", bsDate: "26.9.30", cumLabel: ["25.1~3Q", "26.1~3Q"] };
 const SESSION_KEY = "fd_session";
 
 const $ = (id) => document.getElementById(id);
@@ -84,7 +81,7 @@ function renderStatement(st, target) {
   const bodyEl = target.querySelector(".tab-body");
   const select = (i) => {
     target.querySelectorAll(".tab").forEach((b) => b.classList.toggle("on", Number(b.dataset.i) === i));
-    const ttm = st.ttm || PREVIEW_TTM;
+    const ttm = st.ttm || null;  // 최신 분기 데이터가 없는 회사는 연간 3개년만
     const secs = tabs[i].sections;
     let html = tableHtml(st, secs, ttm);
     if (secs.some((s) => s.title === "손익계산서")) html += cumHtml(st, ttm);
@@ -117,7 +114,7 @@ function tableHtml(st, sections, ttm) {
         return `<td class="num${neg}${extra}">${txt}</td>`;
       };
       let cells = vals.map((x) => cell(x)).join("");
-      if (ttm) cells += st.ttm ? cell(v ? v[n] : null, " ttm") : `<td class="num ttm ph">·</td>`;
+      if (ttm) cells += cell(v ? v[n] : null, " ttm");
       const cls = [kind === "sub" ? "sub" : "", kind === "total" ? "total" : "", level ? "lv1" : ""].join(" ");
       return `<tr class="${cls}"><td class="label">${label}</td>${cells}</tr>`;
     }).join("");
@@ -157,7 +154,7 @@ function renderCompare(list, answerIdx) {
         <div><span>PER</span><b>${mult(r.per, 1, "적자")}</b></div>
         <div><span>PBR</span><b>${mult(r.pbr, 2, "잠식")}</b></div></div>`;
     const table = r.rows
-      ? tableHtml({ years: r.years }, [{ title: "", rows: r.rows }])
+      ? tableHtml({ years: r.years, ttm: r.ttm }, [{ title: "", rows: r.rows }], r.ttm || null)
       : `<p class="muted small">재무 데이터 없음</p>`;
     return `<div class="cmp-card${i === answerIdx ? " answer" : ""}">
       <div class="cmp-head"><span class="cmp-name">${i === answerIdx ? "★ " : ""}${r.name}</span>

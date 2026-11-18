@@ -46,15 +46,16 @@ def fetch_day(basdt):
     return rows
 
 
-def year_end_caps(year):
-    """그해 마지막 거래일의 전 종목 시가총액 {"basDt", "caps": {종목코드: 원}}.
-    12/31부터 하루씩 거슬러 올라가 데이터가 있는 첫날을 쓴다. 결과는 data/raw/mcap_ye/<연도>.json 에 캐시
-    (매일 정리하는 data/raw/mcap/ 와 분리)."""
+def year_end_caps(year, month=12):
+    """그해 그달(기본 12월) 마지막 거래일의 전 종목 시가총액 {"basDt", "caps": {종목코드: 원}}.
+    말일부터 하루씩 거슬러 올라가 데이터가 있는 첫날을 쓴다. 결과는 data/raw/mcap_ye/ 에 캐시
+    (매일 정리하는 data/raw/mcap/ 와 분리). 12월은 <연도>.json, 그 외(분기말)는 <연도>-<월>.json"""
+    import calendar
     from datetime import date, timedelta
-    path = RAW / "mcap_ye" / f"{year}.json"
+    path = RAW / "mcap_ye" / (f"{year}.json" if month == 12 else f"{year}-{month:02d}.json")
     if path.exists():
         return read_json(path)
-    d = date(year, 12, 31)
+    d = date(year, month, calendar.monthrange(year, month)[1])
     for _ in range(10):
         bas = d.strftime("%Y%m%d")
         body = data_go_get(OP, {"basDt": bas, "numOfRows": 1, "pageNo": 1})
@@ -62,7 +63,7 @@ def year_end_caps(year):
             break
         d -= timedelta(days=1)
     else:
-        raise SystemExit(f"[오류] {year}년 마지막 거래일을 찾지 못함")
+        raise SystemExit(f"[오류] {year}년 {month}월 마지막 거래일을 찾지 못함")
     rows, page, total = [], 1, None
     while total is None or len(rows) < total:
         body = data_go_get(OP, {"basDt": bas, "numOfRows": PAGE, "pageNo": page})
@@ -80,7 +81,7 @@ def year_end_caps(year):
             continue
     out = {"basDt": bas, "caps": caps}
     write_json(path, out)
-    print(f"{year}년 마지막 거래일 {bas}: {len(caps):,}종목")
+    print(f"{year}년 {month}월 마지막 거래일 {bas}: {len(caps):,}종목")
     return out
 
 

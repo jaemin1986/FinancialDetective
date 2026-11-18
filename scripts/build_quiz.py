@@ -147,18 +147,54 @@ def ratio_rows(pl, bs):
     return rows
 
 
+def _with_quarter(annual, qpart):
+    """연간 [3개년] 뒤에 최신 분기 값(올해 누적 또는 분기말) 하나를 붙여 4칸으로."""
+    out = {}
+    for k in set(annual) | set(qpart):
+        a, qv = annual.get(k), qpart.get(k)
+        cur = qv[-1] if qv else None
+        out[k] = None if a is None and cur is None else (a or [None] * 3) + [cur]
+    return out
+
+
+def _quarter_ratios(rows, q, pl4, bs4):
+    """비율 4번째 칸 보정: 매출성장률은 전년 동기 누적 대비, ROE는 누적 순이익 연환산 / 분기말 자본."""
+    def div(a, b):
+        return None if a is None or not b else round(a / b * 100, 1)
+    rev = q["pl"]["revenue"]  # [전년 동기 누적, 올해 누적]
+    ni_o = (q["pl"].get("net_income_owners") or q["pl"]["net_income"])[1]
+    eq_o = bs4.get("equity_owners") or bs4["equity"]
+    for r in rows:
+        if r[0] == "매출성장률":
+            r[3][3] = div(rev[1] - rev[0], abs(rev[0])) if rev[0] and rev[1] is not None else None
+        elif r[0] == "ROE":
+            r[3][3] = div(ni_o * 12 / q["months"], eq_o[3]) if ni_o is not None and eq_o[3] and eq_o[3] > 0 else None
+    return rows
+
+
 def statement(fin):
-    a = fin["annual"]
-    return {
+    a, q = fin["annual"], fin.get("quarter")
+    pl, bs, cf = a["pl"], a["bs"], a["cf"]
+    if q:
+        pl, bs, cf = _with_quarter(pl, q["pl"]), _with_quarter(bs, q["bs"]), _with_quarter(cf, q["cf"])
+    ratios = ratio_rows(pl, bs)
+    if q:
+        ratios = _quarter_ratios(ratios, q, pl, bs)
+    out = {
         "years": fin["years"],
         "fs_div": fin["fs_div"],  # CFS=연결, OFS=별도
         "sections": [
-            {"title": "손익계산서", "rows": pl_rows(a["pl"])},
-            {"title": "재무상태표", "rows": bs_rows(a["bs"])},
-            {"title": "현금흐름", "rows": cf_rows(a["cf"])},
-            {"title": "주요 비율", "rows": ratio_rows(a["pl"], a["bs"])},
+            {"title": "손익계산서", "rows": pl_rows(pl)},
+            {"title": "재무상태표", "rows": bs_rows(bs)},
+            {"title": "현금흐름", "rows": cf_rows(cf)},
+            {"title": "주요 비율", "rows": ratios},
         ],
     }
+    if q:  # 최신 분기 열(4번째 값) + 누적 실적 비교표
+        out["ttm"] = {"label": q["label"], "period": q["period"], "bsDate": q["bs_date"],
+                      "cumLabel": q["cum_label"]}
+        out["cum"] = {k: q["pl"][k] for k in ("revenue", "operating_income", "net_income")}
+    return out
 
 
 # ---------------------------------------------------------------- 보기 고르기
@@ -209,14 +245,23 @@ def summary(c, fins, caps, ksic):
     if f:
         pl, bs, cf = f["annual"]["pl"], f["annual"]["bs"], f["annual"]["cf"]
         last = lambda v: v[-1] if v else None
-        ni_o = last(pl.get("net_income_owners")) or last(pl["net_income"])
+        ni_o = last(pl.get("net_income_owners")) or last(pl["net_income"])  # PER·PBR은 직전 사업연도 기준
         eq_o = last(bs.get("equity_owners")) or last(bs["equity"])
-        ratio = {r[0]: r for r in ratio_rows(pl, bs)}
+        q = f.get("quarter")
+        if q:  # 결과 화면에도 최신 분기 누적 열 (문제 화면과 같은 방식)
+            pl, bs, cf = _with_quarter(pl, q["pl"]), _with_quarter(bs, q["bs"]), _with_quarter(cf, q["cf"])
+        ratios = ratio_rows(pl, bs)
+        if q:
+            ratios = _quarter_ratios(ratios, q, pl, bs)
+        ratio = {r[0]: r for r in ratios}
         lv1 = lambda r: [r[0], 1, r[2], r[3]]  # 비율은 들여쓰기
-        # 연말 시가총액: 결산월이 12월인 회사만 (그 외는 결산일과 시점이 달라 "-")
+        # 기말 시가총액: 각 연도 마지막 거래일(+ 분기 열은 분기말 마지막 거래일).
+        # 결산월이 12월인 회사만 (그 외는 결산일과 시점이 달라 "-")
         dec = c.get("acc_mt", "12") == "12"
         ye = [YE_CAPS.get(y, {}).get("caps", {}).get(c["stock_code"]) if dec else None for y in f["years"]]
-        rows = [_row("시가총액(연말)", ye, 0, "sub"),
+        if q:
+            ye.append(year_end_caps(q["year"], q["months"])["caps"].get(c["stock_code"]) if dec else None)
+        rows = [_row("시가총액(기말)", ye, 0, "sub"),
                 _row("매출액", pl["revenue"], 0, "sub"), lv1(ratio["매출성장률"])]
         if "매출총이익률" in ratio:
             rows.append(lv1(ratio["매출총이익률"]))
@@ -231,6 +276,9 @@ def summary(c, fins, caps, ksic):
             "per": round(mcap / ni_o, 1) if ni_o and ni_o > 0 else None,
             "pbr": round(mcap / eq_o, 2) if eq_o and eq_o > 0 else None,
         })
+        if q:
+            out["ttm"] = {"label": q["label"], "period": q["period"], "bsDate": q["bs_date"],
+                          "cumLabel": q["cum_label"]}
     return out
 
 
