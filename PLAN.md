@@ -274,7 +274,7 @@ anon이 실행할 수 있는 RPC 함수(전부 `SECURITY DEFINER`):
 - [x] Actions: 매일 **KST 15:00(UTC 06:00)**에 다음 날 문제 생성 → `answers` 업로드 → 연습 풀 생성 → Pages 배포 (`.github/workflows/daily.yml`, `scripts/daily_job.py`) — 2026-11-15 첫 성공(첫 수집은 3시간 초과로 끊겨 제한 시간 350분으로 늘리고 캐시로 이어 받음)
 - [x] 실패하면 알 수 있게: Actions 실패 시 이메일 알림(GitHub 기본 기능) 확인 — 2026-11-15 첫 실행 실패 때 메일 수신 확인
 - [x] `README.md`: 팀원용 사용법 (링크, 팀 코드 받는 법, 휴대폰 홈 화면에 추가하는 법)
-- [ ] 팀원 초대 전 테스트 닉네임·기록 정리(`admin.py delete` / `reset-scores --all`) — **3Q 재무제표 반영이 끝난 뒤** 진행(2026-11-16 결정, 그때까지 사용자가 시총 표시 점검)
+- [x] 팀원 초대 전 기록 정리 — 2026-11-18 `reset-scores --all`로 플레이 기록 19건 삭제(닉네임 3개 hapPIness·EmPIre·CJ는 유지, 사용자 결정)
 
 ### Phase 6 — 선택 확장 (나중에)
 - [x] 주간·월간 랭킹 (누적 점수) — Phase 4에서 구현
