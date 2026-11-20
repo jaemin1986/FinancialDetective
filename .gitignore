@@ -8,6 +8,8 @@ data/raw/
 
 # 연습 문제 풀: 매일 다시 생성되는 약 14MB 파일 → 커밋하면 저장소가 계속 커짐 (배포 방식은 Phase 5에서 결정)
 docs/pool/
+docs/history.json
+docs/rank.json
 
 # 오늘의 문제 정답 (공개 저장소에 올리면 안 됨 → Supabase answers 테이블로만)
 data/answers/

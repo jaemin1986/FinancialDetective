@@ -8,6 +8,8 @@
 2) 최근 영업일 시가총액 수집 (공공데이터 4건)
 3) 내일 문제 생성 + 연습 풀 생성 → 내일 문제를 Supabase에 업로드
 4) 혹시 오늘 문제가 서버에 없으면(전날 실패 등) 오늘 문제도 만들어 업로드
+5) 출제 히스토리(docs/history.json) 갱신
+6) 시총 순위 게임 데이터(docs/rank.json) 갱신
 """
 import argparse
 import subprocess
@@ -59,6 +61,8 @@ def main():
         run("scripts/upload_daily.py", "--date", str(tomorrow))
     else:
         print(f"{tomorrow} 문제는 이미 서버에 있음")
+    run("scripts/build_history.py")  # 첫 화면 "출제 히스토리" (어제까지)
+    run("scripts/build_rank_game.py")  # 추가 게임 "시총 순위를 맞춰라!" (최신 시총)
 
 
 if __name__ == "__main__":

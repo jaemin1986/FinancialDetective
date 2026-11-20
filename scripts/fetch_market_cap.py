@@ -97,7 +97,8 @@ def main():
     caps = {}
     for r in rows:
         try:
-            caps[r["srtnCd"]] = {"mcap": int(r["mrktTotAmt"]), "market": r["mrktCtg"], "name": r["itmsNm"]}
+            caps[r["srtnCd"]] = {"mcap": int(r["mrktTotAmt"]), "market": r["mrktCtg"], "name": r["itmsNm"],
+                                "close": int(r["clpr"])}  # 종가(원)
         except (KeyError, ValueError):
             continue
 

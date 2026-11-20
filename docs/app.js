@@ -151,15 +151,20 @@ function renderCompare(list, answerIdx) {
     const fs = r.fs_div ? `<span class="tag">${r.fs_div === "CFS" ? "연결" : "별도"}</span>` : "";
     const key = `<div class="keystats">
         <div><span>시가총액</span><b>${eok(r.mcap)}</b></div>
-        <div><span>PER</span><b>${mult(r.per, 1, "적자")}</b></div>
-        <div><span>PBR</span><b>${mult(r.pbr, 2, "잠식")}</b></div></div>`;
+        <div><span>${r.per_label || "PER"}</span><b>${mult(r.per, 1, "적자")}</b></div>
+        <div><span>${r.pbr_label || "PBR"}</span><b>${mult(r.pbr, 2, "잠식")}</b></div></div>`;
+    // 회사명·업종 부분을 누르면 DART 최근 보고서를 새 탭으로 (이 화면은 그대로 남음)
+    const rcp = r.dart && /^\d{14}$/.test(r.dart.rcept_no) ? r.dart.rcept_no : "";
+    const dartOpen = rcp ? `<a class="dart-link" href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${rcp}" target="_blank" rel="noopener">` : "";
+    const dartClose = rcp ? "</a>" : "";
+    const dartNote = rcp ? ` <span class="dart-note">· DART ${esc(r.dart.label)} ↗</span>` : "";
     const table = r.rows
       ? tableHtml({ years: r.years, ttm: r.ttm }, [{ title: "", rows: r.rows }], r.ttm || null)
       : `<p class="muted small">재무 데이터 없음</p>`;
     return `<div class="cmp-card${i === answerIdx ? " answer" : ""}">
-      <div class="cmp-head"><span class="cmp-name">${i === answerIdx ? "★ " : ""}${r.name}</span>
+      ${dartOpen}<div class="cmp-head"><span class="cmp-name">${i === answerIdx ? "★ " : ""}${r.name}</span>
         <span class="tags">${fs}<span class="tag">${r.market}</span></span></div>
-      <div class="industry">${r.industry || r.industry_code}</div>
+      <div class="industry">${r.industry || r.industry_code}${dartNote}</div>${dartClose}
       ${key}${table}
     </div>`;
   }).join("");
@@ -738,7 +743,7 @@ function rankTableHtml(lb) {
   const rows = lb.rows.map((r) => `<tr class="${r.me ? "mine" : ""}"><td>${r.rank}</td><td class="nick">${esc(r.nickname)}</td>
       <td class="num"><b>${r.score}</b></td><td>${r.company_ok}/${n}</td><td>${r.mcap_hits}/${n}</td>
       <td class="num">${fmtSec(r.seconds)}</td></tr>`).join("");
-  return `${head}<div class="tbl-wrap"><table class="rank"><tr><th>순위</th><th>닉네임</th><th>점수</th>
+  return `${head}<div class="tbl-wrap"><table class="rank hist"><tr><th>순위</th><th>닉네임</th><th>점수</th>
     <th>회사</th><th>시총</th><th>시간</th></tr>${rows}</table></div>
     <p class="muted small">회사·시총 = 맞힌 문제 수 · 동점이면 시총 오차율 평균이 작은 순, 그다음 풀이 시간 합 순</p>`;
 }
@@ -747,7 +752,7 @@ function periodTableHtml(lb) {
   if (!lb.rows.length) return `<p class="muted small">이 기간에 기록이 없어요.</p>`;
   const rows = lb.rows.map((r) => `<tr class="${r.me ? "mine" : ""}"><td>${r.rank}</td><td class="nick">${esc(r.nickname)}</td>
       <td class="num"><b>${nf.format(r.score)}</b></td><td>${r.days}일</td><td class="num">${r.avg}</td></tr>`).join("");
-  return `<div class="tbl-wrap"><table class="rank"><tr><th>순위</th><th>닉네임</th><th>누적 점수</th>
+  return `<div class="tbl-wrap"><table class="rank hist"><tr><th>순위</th><th>닉네임</th><th>누적 점수</th>
     <th>참여</th><th>하루 평균</th></tr>${rows}</table></div>
     <p class="muted small">기간 안에 푼 문제 점수를 모두 더한 순위 · 동점이면 참여일이 많은 순</p>`;
 }
@@ -781,6 +786,206 @@ async function openRank(tab = "today") {
     $("rankBody").innerHTML = `<h3>${d} 랭킹</h3>${banner}${rankTableHtml(lb)}`;
   } catch (err) { $("rankBody").innerHTML = `<p class="muted small">${esc(err.message)}</p>`; }
 }
+
+/* ---------------- 출제 히스토리 ---------------- */
+// docs/history.json (Actions가 매일 갱신): 어제까지 오늘의 문제 보기에 나온 횟수 + 최신 시가총액
+async function openHistory() {
+  show("screenHistory", "출제 히스토리");
+  $("historyBody").innerHTML = `<p class="muted small">불러오는 중…</p>`;
+  try {
+    const res = await fetch("history.json", { cache: "no-cache" });
+    if (!res.ok) throw new Error("아직 기록이 없습니다.");
+    const h = await res.json();
+    if (!h.items.length) { $("historyBody").innerHTML = `<p class="muted small">아직 기록이 없습니다.</p>`; return; }
+    renderHistory(h, null);
+  } catch (err) { $("historyBody").innerHTML = `<p class="muted small">${esc(err.message)}</p>`; }
+}
+
+// sortDate: 누른 날짜(그날 O인 회사를 맨 위로). 같은 날짜를 다시 누르면 기본 순서(보기 횟수 많은 순)
+function renderHistory(h, sortDate) {
+  const dates = h.dates || [];        // 날짜 열: 오래된 날 → 최근 (하루에 1열씩 늘어남)
+  const items = sortDate
+    ? [...h.items.filter((x) => (x.on || []).includes(sortDate)),
+       ...h.items.filter((x) => !(x.on || []).includes(sortDate))]   // 안정 정렬: 그룹 안은 기본 순서 유지
+    : h.items;
+  const dateHead = dates.map((d) => `<th class="day sortable${d === sortDate ? " sorted" : ""}" data-date="${d}">` +
+    `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}${d === sortDate ? " ▲" : ""}</th>`).join("");
+  const rows = items.map((x) => {
+    const on = new Set(x.on || []);
+    const cells = dates.map((d) => `<td class="day${d === sortDate ? " sorted" : ""}">${on.has(d) ? "O" : ""}</td>`).join("");
+    return `<tr><td class="nick">${esc(x.name)}</td><td>${esc(x.market || "")}</td>
+      <td class="num">${x.count}</td><td class="num">${x.answer || ""}</td>
+      <td class="num">${eok(x.mcap)}</td>${cells}</tr>`;
+  }).join("");
+  const wrap = document.querySelector("#historyBody .tbl-wrap");
+  const scrollX = wrap ? wrap.scrollLeft : 0;   // 다시 그려도 가로 스크롤 위치 유지
+  $("historyBody").innerHTML = `
+    <p class="muted small">${h.through}까지 ${h.days}일 · ${h.questions}문제 · 보기 ${h.options}개<br>
+      출제 가능 ${nf.format(h.universe)}개 회사 중 <b>${h.items.length}개</b>가 한 번 이상 보기에 나왔습니다.</p>
+    <div class="tbl-wrap"><table class="rank hist"><tr><th>회사</th><th>시장</th><th>보기</th><th>정답</th>
+      <th>시가총액(억원)<br><small>${fmtDate(h.basDt)}</small></th>${dateHead}</tr>${rows}</table></div>
+    <p class="muted small">보기 = 보기 4개 안에 나온 횟수 · 정답 = 그중 정답이었던 횟수 · 날짜 열 O = 그날 보기에 나옴 · 오늘 문제는 다음 날 반영<br>
+      날짜를 누르면 그날 나온 회사가 맨 위로 올라옵니다(한 번 더 누르면 원래 순서).</p>`;
+  document.querySelector("#historyBody .tbl-wrap").scrollLeft = scrollX;
+  document.querySelectorAll("#historyBody th.sortable").forEach((th) =>
+    th.addEventListener("click", () => renderHistory(h, th.dataset.date === sortDate ? null : th.dataset.date)));
+}
+
+/* ---------------- 추가 게임: 시총 순위를 맞춰라! ---------------- */
+// docs/rank.json(매일 갱신): 코스피·코스닥 시총 상위 300개. 문제는 여기서 무작위로 만든다(랭킹 반영 없음)
+// state.rg = { market, ranks[RG_N], items[{name,mcap,rank}](무작위 순서), slots[RG_N](item 번호|null), done, sel }
+const RG_N = 5;                         // 한 문제의 회사 수 (2026-11-20 10개 → 5개)
+const RG_STEPS = [5, 10, 20, 30, 50];
+const RG_MKT = { KOSPI: "코스피", KOSDAQ: "코스닥" };
+
+async function openRankGame() {
+  show("screenRankGame", "시총 순위 게임");
+  if (!state.rgData) {
+    $("rgBoard").innerHTML = `<p class="muted small">불러오는 중…</p>`;
+    try {
+      const res = await fetch("rank.json", { cache: "no-cache" });
+      if (!res.ok) throw new Error("no data");
+      state.rgData = await res.json();
+    } catch (err) { $("rgBoard").innerHTML = `<p class="muted small">시총 데이터를 불러오지 못했습니다.</p>`; return; }
+  }
+  newRankGame();
+}
+
+function newRankGame() {
+  const data = state.rgData;
+  if (!data) return;
+  const market = Math.random() < 0.5 ? "KOSPI" : "KOSDAQ";
+  const list = data.markets[market];
+  const steps = RG_STEPS.filter((st) => 1 + st * (RG_N - 1) <= list.length);
+  const step = steps[Math.floor(Math.random() * steps.length)];
+  const start = 1 + Math.floor(Math.random() * step);          // 예: 간격 10이면 1~10위 중 하나에서 시작
+  const ranks = Array.from({ length: RG_N }, (_, i) => start + step * i);
+  const items = ranks.map((r) => ({ ...list[r - 1], rank: r }));
+  for (let i = items.length - 1; i > 0; i--) {                // 보기 순서 섞기
+    const j = Math.floor(Math.random() * (i + 1)); [items[i], items[j]] = [items[j], items[i]];
+  }
+  state.rg = { market, ranks, items, slots: Array(RG_N).fill(null), done: false, sel: null };
+  $("rgTitle").textContent = `${RG_MKT[market]} 시총 순위를 맞춰라!`;
+  $("rgInfo").innerHTML = `${RG_MKT[market]} 시가총액 <b>${ranks.join("위, ")}위</b>의 회사를 맞혀 보세요.<br>` +
+    `아래 회사를 시가총액 오른쪽 칸으로 끌어다 놓으세요(회사를 누른 뒤 칸을 눌러도 됩니다). 시가총액 기준일 ${fmtDate(data.basDt)}`;
+  renderRankGame();
+}
+
+function rgChip(k) {
+  const it = state.rg.items[k];
+  return `<div class="rg-chip${state.rg.sel === k ? " sel" : ""}" data-item="${k}">${esc(it.name)}</div>`;
+}
+
+function renderRankGame() {
+  const g = state.rg;
+  const placed = new Set(g.slots.filter((x) => x !== null));
+  const rows = g.ranks.map((r, i) => {
+    const k = g.slots[i];
+    let cell = k === null ? `<span class="rg-empty">여기에 놓기</span>` : rgChip(k);
+    let mark = "";
+    if (g.done) {
+      const ok = k !== null && g.items[k].rank === r;
+      const right = g.items.find((it) => it.rank === r);
+      cell = k === null ? "" : `<div class="rg-chip fixed">${esc(g.items[k].name)}</div>`;
+      mark = ok ? `<span class="rg-ok">✅</span>`
+        : `<span class="rg-bad">❌</span><div class="rg-answer">정답: <b>${esc(right.name)}</b></div>`;
+    }
+    const cap = g.items.find((it) => it.rank === r).mcap;   // 순위 옆 시가총액(힌트)
+    return `<div class="rg-row"><span class="rg-rank">${r}위</span><span class="rg-mcap">${prettyEok(Math.round(cap / 1e8))}</span>
+      <div class="rg-slot${g.done ? " done" : ""}" data-slot="${i}">${cell}</div><div class="rg-mark">${mark}</div></div>`;
+  }).join("");
+  let foot;
+  if (g.done) {
+    const n = g.ranks.filter((r, i) => g.slots[i] !== null && g.items[g.slots[i]].rank === r).length;
+    foot = `<p class="rank-line">${n} / ${RG_N} 정답${n === RG_N ? " 🎯" : ""}</p>`;
+  } else {
+    const pool = g.items.map((_, k) => k).filter((k) => !placed.has(k)).map((k) => rgChip(k)).join("");
+    foot = `<div class="rg-pool" data-pool="1">${pool || `<span class="rg-empty">모두 놓았습니다. 정답 확인을 누르세요</span>`}</div>`;
+  }
+  $("rgBoard").innerHTML = `<div class="rg-list">${rows}</div>${foot}`;
+  $("rgSubmit").disabled = g.done || g.slots.some((x) => x === null);
+  $("rgSubmit").hidden = g.done;
+}
+
+// 회사 k를 칸(slot 번호) 또는 아래 목록(null)으로 옮긴다. 칸에 다른 회사가 있으면 자리를 바꾼다
+function rgMove(k, slot) {
+  const g = state.rg;
+  const from = g.slots.indexOf(k);                 // -1이면 아래 목록에 있던 회사
+  if (from >= 0) g.slots[from] = null;
+  if (slot !== null) {
+    const other = g.slots[slot];
+    if (other !== null && from >= 0) g.slots[from] = other;  // 칸끼리는 자리 바꾸기(목록에서 왔으면 원래 회사는 목록으로)
+    g.slots[slot] = k;
+  }
+  g.sel = null;
+  renderRankGame();
+}
+
+// 끌어다 놓기: 마우스·손가락 모두 pointer 이벤트로 처리. 조금 움직이면 드래그, 아니면 누르기(고르기)
+(function rankGameDrag() {
+  let drag = null;   // { k, x0, y0, ghost, chip }
+  const targetAt = (x, y) => {
+    const el = document.elementFromPoint(x, y);
+    if (!el) return undefined;
+    const slot = el.closest("#rgBoard [data-slot]");
+    if (slot) return Number(slot.dataset.slot);
+    if (el.closest("#rgBoard [data-pool]")) return null;
+    return undefined;                                       // 바깥에 놓으면 취소
+  };
+  document.addEventListener("pointerdown", (e) => {
+    if (!state.rg || state.rg.done) return;
+    const chip = e.target.closest("#rgBoard .rg-chip");
+    if (!chip || chip.classList.contains("fixed")) return;
+    drag = { k: Number(chip.dataset.item), x0: e.clientX, y0: e.clientY, ghost: null, chip };
+  });
+  document.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    if (!drag.ghost) {
+      if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 6) return;
+      drag.ghost = drag.chip.cloneNode(true);
+      drag.ghost.classList.add("ghost");
+      document.body.appendChild(drag.ghost);
+      drag.chip.classList.add("dragging");
+    }
+    e.preventDefault();
+    drag.ghost.style.left = `${e.clientX}px`;
+    drag.ghost.style.top = `${e.clientY}px`;
+    document.querySelectorAll("#rgBoard .over").forEach((el) => el.classList.remove("over"));
+    const t = targetAt(e.clientX, e.clientY);
+    if (t !== undefined) {
+      const el = document.querySelector(t === null ? "#rgBoard [data-pool]" : `#rgBoard [data-slot="${t}"]`);
+      if (el) el.classList.add("over");
+    }
+    if (e.clientY < 60) window.scrollBy(0, -12);                    // 화면 끝으로 끌면 자동 스크롤
+    else if (e.clientY > window.innerHeight - 60) window.scrollBy(0, 12);
+  }, { passive: false });
+  const end = (e) => {
+    if (!drag) return;
+    const d = drag; drag = null;
+    if (d.ghost) {
+      d.ghost.remove();
+      const t = e.type === "pointerup" ? targetAt(e.clientX, e.clientY) : undefined;
+      if (t !== undefined) rgMove(d.k, t); else renderRankGame();
+    } else if (e.type === "pointerup") {                           // 누르기: 고르기/해제
+      state.rg.sel = state.rg.sel === d.k ? null : d.k;
+      renderRankGame();
+    }
+  };
+  document.addEventListener("pointerup", end);
+  document.addEventListener("pointercancel", end);
+  // 회사를 고른 상태에서 칸·목록을 누르면 그리로 옮김
+  document.addEventListener("click", (e) => {
+    const g = state.rg;
+    if (!g || g.done || g.sel === null || e.target.closest(".rg-chip")) return;
+    const slot = e.target.closest("#rgBoard [data-slot]");
+    if (slot) rgMove(g.sel, Number(slot.dataset.slot));
+    else if (e.target.closest("#rgBoard [data-pool]")) rgMove(g.sel, null);
+  });
+})();
+
+$("rgSubmit").addEventListener("click", () => { state.rg.done = true; state.rg.sel = null; renderRankGame(); });
+$("rgNew").addEventListener("click", newRankGame);
+$("btnRankGame").addEventListener("click", openRankGame);
 
 /* ---------------- 기타 ---------------- */
 let toastTimer;
@@ -822,6 +1027,7 @@ $("btnGoSignup").addEventListener("click", () => { setMsg("msg1", ""); signupSte
 $("btnGoLogin").addEventListener("click", () => { show("screenLogin", "로그인"); setTimeout(() => $("loginNick").focus(), 50); });
 $("btnDaily").addEventListener("click", startDaily);
 $("btnRank").addEventListener("click", () => openRank("today"));
+$("btnHistory").addEventListener("click", openHistory);
 $("btnRank2").addEventListener("click", () => openRank("week"));
 $("btnGoPin").addEventListener("click", () => openPin(false));
 document.querySelectorAll("#screenRank .tab").forEach((b) => b.addEventListener("click", () => openRank(b.dataset.tab)));

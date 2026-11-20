@@ -173,3 +173,36 @@ table.fin td.ph { color: #c0c4cc; text-align: center; }
   position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
   background: #111827; color: #fff; padding: 8px 14px; border-radius: 8px; font-size: 14px; z-index: 20;
 }
+
+/* 출제 히스토리: 날짜 열이 늘어나도 회사명은 왼쪽에 고정 */
+table.hist th.day, table.hist td.day { min-width: 34px; color: var(--text, inherit); }
+table.hist td.nick, table.hist tr > th:first-child { position: sticky; left: 0; background: #fff; z-index: 1; }
+
+/* 결과 화면: 회사명 부분 → DART 최근 보고서 링크 */
+a.dart-link { display: block; color: inherit; text-decoration: none; border-radius: 8px; margin: -4px; padding: 4px; }
+a.dart-link:hover { background: #f1f5ff; }
+.dart-note { color: #2563eb; white-space: nowrap; }
+table.hist th.sortable { cursor: pointer; text-decoration: underline dotted; }
+table.hist th.sortable:hover { color: #2563eb; }
+table.hist .sorted { background: #eff6ff; color: #2563eb; }
+
+/* 추가 게임: 시총 순위를 맞춰라! */
+.rg-list { margin: 10px 0; }
+.rg-row { display: grid; grid-template-columns: 40px 84px 1fr auto; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--line); }
+.rg-rank { font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+.rg-slot { min-height: 40px; border: 2px dashed var(--line); border-radius: 8px; display: flex; align-items: center; padding: 2px; }
+.rg-slot.done { border-style: solid; }
+.rg-slot.over, .rg-pool.over { border-color: var(--accent); background: #eff6ff; }
+.rg-empty { color: var(--muted); font-size: 12px; padding: 0 8px; }
+.rg-pool { display: flex; flex-wrap: wrap; gap: 6px; min-height: 48px; padding: 8px; border: 2px dashed var(--line); border-radius: 10px; margin-bottom: 10px; }
+.rg-chip { touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; background: #fff; border: 1px solid var(--accent);
+  color: var(--text); border-radius: 8px; padding: 7px 10px; font-size: 14px; font-weight: 600; }
+.rg-slot .rg-chip { width: 100%; }
+.rg-chip.sel { background: var(--accent); color: #fff; }
+.rg-chip.dragging { opacity: .35; }
+.rg-chip.fixed { cursor: default; border-color: var(--line); }
+.rg-chip.ghost { position: fixed; z-index: 1000; pointer-events: none; transform: translate(-50%, -50%); box-shadow: 0 6px 16px rgba(0,0,0,.2); }
+.rg-mark { text-align: right; font-size: 12px; min-width: 24px; }
+.rg-mcap { color: var(--muted); font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rg-actions { display: flex; gap: 8px; }
+.rg-actions .btn { flex: 1; }

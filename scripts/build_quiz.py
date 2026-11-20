@@ -20,7 +20,7 @@ import random
 import re
 from datetime import date, timedelta
 
-from common import ROOT, DATA, read_json, write_json, now_kst, quiz_today
+from common import ROOT, DATA, RAW, read_json, write_json, now_kst, quiz_today
 from fin_extract import BS_ITEMS
 from fetch_market_cap import year_end_caps
 
@@ -235,6 +235,53 @@ def industry_name(code, ksic):
     return None
 
 
+def per_pbr_base(f, q):
+    """PER·PBR 분모 (2026-11-19 결정).
+    PER = 최근 12개월(LTM) 지배주주 순이익 = 직전 연간 + 올해 누적 − 전년 동기 누적
+    PBR = 최신 지배주주 자본(분기말). 분기 데이터가 없으면 직전 사업연도 기준.
+    지배주주 값이 하나라도 없으면 당기순이익·자본총계로 대신한다."""
+    a_pl, a_bs = f["annual"]["pl"], f["annual"]["bs"]
+    year = str(f["years"][-1])[2:]
+    if q:
+        own = a_pl.get("net_income_owners"), q["pl"].get("net_income_owners")
+        if own[0] and own[0][-1] is not None and own[1] and None not in own[1]:
+            ann, cum = own[0][-1], own[1]
+        else:
+            ann, cum = a_pl["net_income"][-1], q["pl"]["net_income"]
+        ni = None if ann is None or None in cum else ann + cum[1] - cum[0]
+        eq = (q["bs"].get("equity_owners") or [None])[0] or q["bs"]["equity"][0]
+        return ni, eq, "PER (LTM)", f"PBR ({q['label']})"
+    last = lambda v: v[-1] if v else None
+    ni = last(a_pl.get("net_income_owners")) or last(a_pl["net_income"])
+    eq = last(a_bs.get("equity_owners")) or last(a_bs["equity"])
+    return ni, eq, f"PER ({year})", f"PBR ({year})"
+
+
+_RCEPT = {}
+
+
+def latest_report(code, f):
+    """결과 화면의 DART 링크용: 가장 최근 보고서(분기 있으면 분기, 없으면 사업보고서)의 접수번호와 이름.
+    data/raw/fin 캐시에서 읽는다(API 호출 없음). 정답 공개 후에만 보이는 reveal에만 넣는다."""
+    if code in _RCEPT:
+        return _RCEPT[code]
+    q, fs = f.get("quarter"), f["fs_div"]
+    if q:
+        path = RAW / "fin" / str(q["year"]) / f"{code}_{fs}_{q['reprt_code']}.json"
+        name = {"11013": "1분기보고서", "11012": "반기보고서", "11014": "3분기보고서"}[q["reprt_code"]]
+        label = f"{q['year']} {name}"
+    else:
+        path = RAW / "fin" / str(f["bsns_year"]) / f"{code}_{fs}.json"
+        label = f"{f['bsns_year']} 사업보고서"
+    out = None
+    if path.exists():
+        lst = read_json(path).get("list") or []
+        if lst and lst[0].get("rcept_no"):
+            out = {"rcept_no": lst[0]["rcept_no"], "label": label}
+    _RCEPT[code] = out
+    return out
+
+
 def summary(c, fins, caps, ksic):
     """정답 공개 후 비교 화면용 요약 (보기 각각)."""
     mcap = caps[c["stock_code"]]["mcap"]
@@ -244,10 +291,8 @@ def summary(c, fins, caps, ksic):
     f = fins.get(c["corp_code"])
     if f:
         pl, bs, cf = f["annual"]["pl"], f["annual"]["bs"], f["annual"]["cf"]
-        last = lambda v: v[-1] if v else None
-        ni_o = last(pl.get("net_income_owners")) or last(pl["net_income"])  # PER·PBR은 직전 사업연도 기준
-        eq_o = last(bs.get("equity_owners")) or last(bs["equity"])
         q = f.get("quarter")
+        ni_o, eq_o, per_label, pbr_label = per_pbr_base(f, q)
         if q:  # 결과 화면에도 최신 분기 누적 열 (문제 화면과 같은 방식)
             pl, bs, cf = _with_quarter(pl, q["pl"]), _with_quarter(bs, q["bs"]), _with_quarter(cf, q["cf"])
         ratios = ratio_rows(pl, bs)
@@ -275,7 +320,11 @@ def summary(c, fins, caps, ksic):
             "years": f["years"], "fs_div": f["fs_div"], "rows": rows,
             "per": round(mcap / ni_o, 1) if ni_o and ni_o > 0 else None,
             "pbr": round(mcap / eq_o, 2) if eq_o and eq_o > 0 else None,
+            "per_label": per_label, "pbr_label": pbr_label,
         })
+        rep = latest_report(c["corp_code"], f)
+        if rep:
+            out["dart"] = rep  # {"rcept_no", "label"}
         if q:
             out["ttm"] = {"label": q["label"], "period": q["period"], "bsDate": q["bs_date"],
                           "cumLabel": q["cum_label"]}

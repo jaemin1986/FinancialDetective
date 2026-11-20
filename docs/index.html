@@ -55,6 +55,16 @@
         <button class="btn" id="btnStart" disabled>연습만 할래요</button>
         <p class="muted small">연습 모드는 닉네임 없이 할 수 있고, 랭킹에 반영되지 않습니다.</p>
       </div>
+
+      <div class="card">
+        <button class="btn" id="btnHistory">출제 히스토리</button>
+      </div>
+
+      <div class="card">
+        <h3>추가 게임: 시총 순위를 맞춰라!</h3>
+        <p class="muted small">코스피·코스닥 시가총액 순위 5개에 맞는 회사를 끌어다 놓으세요. 랭킹에 반영되지 않습니다.</p>
+        <button class="btn" id="btnRankGame">시총 순위 게임 하기</button>
+      </div>
     </section>
 
     <!-- 가입 (4단계) -->
@@ -203,6 +213,27 @@
       <div class="card">
         <h3>문제로 나온 재무제표</h3>
         <div id="statementAgain"></div>
+      </div>
+    </section>
+
+    <!-- 출제 히스토리 -->
+    <section id="screenHistory" class="screen" hidden>
+      <div class="card">
+        <h3>출제 히스토리</h3>
+        <div id="historyBody"></div>
+      </div>
+    </section>
+
+    <!-- 추가 게임: 시총 순위를 맞춰라! -->
+    <section id="screenRankGame" class="screen" hidden>
+      <div class="card">
+        <h3 id="rgTitle">시총 순위를 맞춰라!</h3>
+        <p class="muted small" id="rgInfo"></p>
+        <div id="rgBoard"></div>
+        <div class="rg-actions">
+          <button class="btn primary" id="rgSubmit" disabled>정답 확인</button>
+          <button class="btn" id="rgNew">새 문제</button>
+        </div>
       </div>
     </section>
 
