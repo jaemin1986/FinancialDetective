@@ -1,7 +1,7 @@
 r"""추가 게임 "시총 순위를 맞춰라!" 데이터 → docs/rank.json (2026-11-20 추가)
 
 실행: .\.venv\Scripts\python.exe scripts\build_rank_game.py
-- data/market_cap.json(매일 갱신, 최신 기준일)에서 코스피·코스닥 각각 시가총액 상위 300개를 순위대로 저장한다.
+- data/market_cap.json(매일 갱신, 최신 기준일)에서 코스피·코스닥 각각 시가총액 상위 800개를 순위대로 저장한다.
 - 보통주만(종목코드 끝자리 0). 우선주·코넥스·스팩은 뺀다.
 - 문제(어떤 순위 10개를 낼지)는 화면이 이 목록에서 무작위로 만든다. 랭킹에 반영하지 않는 연습용.
 - 공개된 시세 정보라서 정답 인코딩은 하지 않는다.
@@ -9,7 +9,7 @@ r"""추가 게임 "시총 순위를 맞춰라!" 데이터 → docs/rank.json (20
 from common import ROOT, DATA, read_json, write_json, now_kst
 
 OUT = ROOT / "docs" / "rank.json"
-TOP = 300
+TOP = 800
 
 
 def main():

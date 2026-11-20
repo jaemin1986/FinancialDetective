@@ -206,3 +206,10 @@ table.hist .sorted { background: #eff6ff; color: #2563eb; }
 .rg-mcap { color: var(--muted); font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .rg-actions { display: flex; gap: 8px; }
 .rg-actions .btn { flex: 1; }
+table.hist .hist-name { max-width: 7em; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
+table.hist .hist-name::-webkit-scrollbar { display: none; }
+table.hist th, table.hist td { padding-left: 3px; padding-right: 3px; }
+
+/* 첫 화면: 연습 모드 버튼 옆에 출제 히스토리, 추가 게임 제목의 빨간 별 */
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.stars { color: #e11d48; letter-spacing: 1px; }

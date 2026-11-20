@@ -813,7 +813,9 @@ function renderHistory(h, sortDate) {
   const rows = items.map((x) => {
     const on = new Set(x.on || []);
     const cells = dates.map((d) => `<td class="day${d === sortDate ? " sorted" : ""}">${on.has(d) ? "O" : ""}</td>`).join("");
-    return `<tr><td class="nick">${esc(x.name)}</td><td>${esc(x.market || "")}</td>
+    // 회사명은 7글자 폭까지만 보이고 넘치면 칸 안에서 옆으로 밀어서 봄. 시장은 PI/DAQ로 줄임
+    const mkt = { KOSPI: "PI", KOSDAQ: "DAQ" }[x.market] || x.market || "";
+    return `<tr><td class="nick"><div class="hist-name" title="${esc(x.name)}">${esc(x.name)}</div></td><td>${esc(mkt)}</td>
       <td class="num">${x.count}</td><td class="num">${x.answer || ""}</td>
       <td class="num">${eok(x.mcap)}</td>${cells}</tr>`;
   }).join("");
@@ -835,7 +837,8 @@ function renderHistory(h, sortDate) {
 // docs/rank.json(매일 갱신): 코스피·코스닥 시총 상위 300개. 문제는 여기서 무작위로 만든다(랭킹 반영 없음)
 // state.rg = { market, ranks[RG_N], items[{name,mcap,rank}](무작위 순서), slots[RG_N](item 번호|null), done, sel }
 const RG_N = 5;                         // 한 문제의 회사 수 (2026-11-20 10개 → 5개)
-const RG_STEPS = [5, 10, 20, 30, 50];
+const RG_STEPS = [5, 10, 20, 30, 50, 100, 150];
+const RG_WIDE_FROM = 300, RG_WIDE_STEP = 50;   // 300위 밖에서 시작하면 간격 50위 이상   // 순위 간격 (2026-11-20 800위까지 확대)
 const RG_MKT = { KOSPI: "코스피", KOSDAQ: "코스닥" };
 
 async function openRankGame() {
@@ -857,8 +860,12 @@ function newRankGame() {
   const market = Math.random() < 0.5 ? "KOSPI" : "KOSDAQ";
   const list = data.markets[market];
   const steps = RG_STEPS.filter((st) => 1 + st * (RG_N - 1) <= list.length);
-  const step = steps[Math.floor(Math.random() * steps.length)];
-  const start = 1 + Math.floor(Math.random() * step);          // 예: 간격 10이면 1~10위 중 하나에서 시작
+  // 1~800위 어디서든 시작. 단 300위 밖에서 시작하면 회사끼리 시총 차이가 작아서 간격을 50위 이상으로
+  let step, start;
+  do {
+    step = steps[Math.floor(Math.random() * steps.length)];
+    start = 1 + Math.floor(Math.random() * (list.length - step * (RG_N - 1)));
+  } while (start > RG_WIDE_FROM && step < RG_WIDE_STEP);
   const ranks = Array.from({ length: RG_N }, (_, i) => start + step * i);
   const items = ranks.map((r) => ({ ...list[r - 1], rank: r }));
   for (let i = items.length - 1; i > 0; i--) {                // 보기 순서 섞기
