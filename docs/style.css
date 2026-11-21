@@ -188,7 +188,7 @@ table.hist .sorted { background: #eff6ff; color: #2563eb; }
 
 /* 추가 게임: 시총 순위를 맞춰라! */
 .rg-list { margin: 10px 0; }
-.rg-row { display: grid; grid-template-columns: 40px 84px 1fr auto; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--line); }
+.rg-row { display: grid; grid-template-columns: 52px 76px 1fr auto; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--line); }
 .rg-rank { font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
 .rg-slot { min-height: 40px; border: 2px dashed var(--line); border-radius: 8px; display: flex; align-items: center; padding: 2px; }
 .rg-slot.done { border-style: solid; }
@@ -213,3 +213,7 @@ table.hist th, table.hist td { padding-left: 3px; padding-right: 3px; }
 /* 첫 화면: 연습 모드 버튼 옆에 출제 히스토리, 추가 게임 제목의 빨간 별 */
 .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .stars { color: #e11d48; letter-spacing: 1px; }
+.rg-rank { white-space: nowrap; }
+#rlBack { width: 100%; margin-top: 10px; }
+.rl-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.rl-head h3 { margin: 0; }

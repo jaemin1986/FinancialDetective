@@ -846,11 +846,9 @@ async function openRankGame() {
   show("screenRankGame", "시총 순위 게임");
   if (!state.rgData) {
     $("rgBoard").innerHTML = `<p class="muted small">불러오는 중…</p>`;
-    try {
-      const res = await fetch("rank.json", { cache: "no-cache" });
-      if (!res.ok) throw new Error("no data");
-      state.rgData = await res.json();
-    } catch (err) { $("rgBoard").innerHTML = `<p class="muted small">시총 데이터를 불러오지 못했습니다.</p>`; return; }
+    try { await loadRankData(); } catch (err) {
+      $("rgBoard").innerHTML = `<p class="muted small">시총 데이터를 불러오지 못했습니다.</p>`; return;
+    }
   }
   newRankGame();
 }
@@ -990,6 +988,52 @@ function rgMove(k, slot) {
     else if (e.target.closest("#rgBoard [data-pool]")) rgMove(g.sel, null);
   });
 })();
+
+/* 시총 순위 보기: 코스피·코스닥 1위부터(시가총액 큰 순). 게임 중에 열면 "게임으로 돌아가기"로 그대로 복귀 */
+async function loadRankData() {
+  if (state.rgData) return state.rgData;
+  const res = await fetch("rank.json", { cache: "no-cache" });
+  if (!res.ok) throw new Error("no data");
+  state.rgData = await res.json();
+  return state.rgData;
+}
+
+async function openRankList(fromGame) {
+  state.rlFromGame = !!fromGame;
+  const scrollY = window.scrollY;
+  state.rgScroll = fromGame ? scrollY : 0;
+  show("screenRankList", "시총 순위");
+  $("rlBody").innerHTML = `<p class="muted small">불러오는 중…</p>`;
+  try { await loadRankData(); } catch (err) {
+    $("rlBody").innerHTML = `<p class="muted small">시총 데이터를 불러오지 못했습니다.</p>`; return;
+  }
+  // 게임에서 열었으면 그 문제의 시장 탭부터
+  renderRankList(fromGame && state.rg ? state.rg.market : (state.rlMarket || "KOSPI"));
+}
+
+function renderRankList(market) {
+  state.rlMarket = market;
+  const d = state.rgData;
+  document.querySelectorAll("#screenRankList .tab").forEach((b) => b.classList.toggle("on", b.dataset.mkt === market));
+  $("rlInfo").textContent = `${RG_MKT[market]} 보통주 시가총액 1~${d.markets[market].length}위 · 기준일 ${fmtDate(d.basDt)} · 단위 억원`;
+  const rows = d.markets[market].map((x, i) =>
+    `<tr><td class="num">${i + 1}</td><td class="nick">${esc(x.name)}</td><td class="num">${eok(x.mcap)}</td></tr>`).join("");
+  $("rlBody").innerHTML = `<div class="tbl-wrap"><table class="rank"><tr><th>순위</th><th>회사</th><th>시가총액</th></tr>${rows}</table></div>`;
+}
+
+// 게임 중에 열었으면 풀던 문제로 그대로 돌아가고, 첫 화면에서 열었으면 새 게임 시작
+function backToRankGame() {
+  if (!state.rlFromGame || !state.rg) return openRankGame();
+  show("screenRankGame", "시총 순위 게임");   // 게임 화면은 그대로 남아 있음(새 문제로 바뀌지 않음)
+  window.scrollTo(0, state.rgScroll || 0);
+}
+
+document.querySelectorAll("#screenRankList .tab").forEach((b) =>
+  b.addEventListener("click", () => renderRankList(b.dataset.mkt)));
+$("btnRankList").addEventListener("click", () => openRankList(false));
+$("rgList").addEventListener("click", () => openRankList(true));
+$("rlBack").addEventListener("click", backToRankGame);
+$("rlGame").addEventListener("click", backToRankGame);
 
 $("rgSubmit").addEventListener("click", () => { state.rg.done = true; state.rg.sel = null; renderRankGame(); });
 $("rgNew").addEventListener("click", newRankGame);

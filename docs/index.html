@@ -62,7 +62,10 @@
       <div class="card">
         <h3><span class="stars">★★</span> 추가 게임: 시총 순위를 맞춰라!</h3>
         <p class="muted small">코스피·코스닥 시가총액 순위 5개에 맞는 회사를 끌어다 놓으세요. 랭킹에 반영되지 않습니다.</p>
-        <button class="btn" id="btnRankGame">시총 순위 게임 하기</button>
+        <div class="btn-row">
+          <button class="btn" id="btnRankGame">시총 순위 게임 하기</button>
+          <button class="btn" id="btnRankList">시총 순위</button>
+        </div>
       </div>
     </section>
 
@@ -232,7 +235,25 @@
         <div class="rg-actions">
           <button class="btn primary" id="rgSubmit" disabled>정답 확인</button>
           <button class="btn" id="rgNew">새 문제</button>
+          <button class="btn" id="rgList">시총 순위</button>
         </div>
+      </div>
+    </section>
+
+    <!-- 시총 순위 보기 (코스피·코스닥 1~800위) -->
+    <section id="screenRankList" class="screen" hidden>
+      <div class="card">
+        <div class="rl-head">
+          <h3>시총 순위</h3>
+          <button class="btn" id="rlGame">시총 순위 게임 하기</button>
+        </div>
+        <div class="tabs">
+          <button type="button" class="tab" data-mkt="KOSPI">코스피</button>
+          <button type="button" class="tab" data-mkt="KOSDAQ">코스닥</button>
+        </div>
+        <p class="muted small" id="rlInfo"></p>
+        <div id="rlBody"></div>
+        <button class="btn" id="rlBack">시총 순위 게임 하기</button>
       </div>
     </section>
 
