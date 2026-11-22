@@ -840,6 +840,7 @@ const RG_N = 5;                         // 한 문제의 회사 수 (2026-11-20 
 const RG_STEPS = [5, 10, 20, 30, 50, 100, 150];
 // 시작 순위가 뒤로 갈수록 시총 차이가 작아서 간격을 벌림: [이 순위 밖에서 시작하면, 최소 간격]
 const RG_WIDE = [[500, 100], [300, 50], [200, 30]];
+const RG_PAST100_STEP = 20;   // 5개 중 하나라도 100위를 넘으면 간격 20위 이상 (2026-11-22)
 const RG_MKT = { KOSPI: "코스피", KOSDAQ: "코스닥" };
 
 async function openRankGame() {
@@ -859,12 +860,14 @@ function newRankGame() {
   const market = Math.random() < 0.5 ? "KOSPI" : "KOSDAQ";
   const list = data.markets[market];
   const steps = RG_STEPS.filter((st) => 1 + st * (RG_N - 1) <= list.length);
-  // 1~800위 어디서든 시작. 단 200위 밖이면 간격 30위 이상, 300위 밖이면 50위 이상, 500위 밖이면 100위 이상
+  // 1~800위 어디서든 시작. 단 100위를 넘는 순위가 있으면 간격 20위 이상,
+  // 200위 밖에서 시작하면 30위 이상, 300위 밖이면 50위 이상, 500위 밖이면 100위 이상
   let step, start;
   do {
     step = steps[Math.floor(Math.random() * steps.length)];
     start = 1 + Math.floor(Math.random() * (list.length - step * (RG_N - 1)));
-  } while (RG_WIDE.some(([from, min]) => start > from && step < min));
+  } while (RG_WIDE.some(([from, min]) => start > from && step < min)
+           || (start + step * (RG_N - 1) > 100 && step < RG_PAST100_STEP));
   const ranks = Array.from({ length: RG_N }, (_, i) => start + step * i);
   const items = ranks.map((r) => ({ ...list[r - 1], rank: r }));
   for (let i = items.length - 1; i > 0; i--) {                // 보기 순서 섞기
