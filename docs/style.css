@@ -217,3 +217,12 @@ table.hist th, table.hist td { padding-left: 3px; padding-right: 3px; }
 #rlBack { width: 100%; margin-top: 10px; }
 .rl-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
 .rl-head h3 { margin: 0; }
+
+/* 시총 순위: 등락 색 (오름 빨강, 내림 파랑), DART 링크 */
+table.rl td.up, .up { color: #dc2626; }
+table.rl td.down, .down { color: #2563eb; }
+table.rl td.muted { color: var(--muted); }
+a.dart-a { color: inherit; text-decoration: underline dotted #93c5fd; }
+a.dart-a:hover { color: #2563eb; }
+a.dart-chip { text-decoration: none; display: block; }
+a.dart-chip small { color: #2563eb; font-weight: 400; }

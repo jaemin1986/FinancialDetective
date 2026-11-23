@@ -839,8 +839,8 @@ function renderHistory(h, sortDate) {
 const RG_N = 5;                         // 한 문제의 회사 수 (2026-11-20 10개 → 5개)
 const RG_STEPS = [5, 10, 20, 30, 50, 100, 150];
 // 시작 순위가 뒤로 갈수록 시총 차이가 작아서 간격을 벌림: [이 순위 밖에서 시작하면, 최소 간격]
-const RG_WIDE = [[500, 100], [300, 50], [200, 30]];
-const RG_PAST100_STEP = 20;   // 5개 중 하나라도 100위를 넘으면 간격 20위 이상 (2026-11-22)
+// 다음 순위까지 최소 간격 (2026-11-23): 30위 넘으면 30, 50위 넘으면 50, 100위 넘으면 100
+function rgMinGap(r) { return r > 100 ? 100 : r > 50 ? 50 : r > 30 ? 30 : 5; }
 const RG_MKT = { KOSPI: "코스피", KOSDAQ: "코스닥" };
 
 async function openRankGame() {
@@ -859,16 +859,16 @@ function newRankGame() {
   if (!data) return;
   const market = Math.random() < 0.5 ? "KOSPI" : "KOSDAQ";
   const list = data.markets[market];
-  const steps = RG_STEPS.filter((st) => 1 + st * (RG_N - 1) <= list.length);
-  // 1~800위 어디서든 시작. 단 100위를 넘는 순위가 있으면 간격 20위 이상,
-  // 200위 밖에서 시작하면 30위 이상, 300위 밖이면 50위 이상, 500위 밖이면 100위 이상
-  let step, start;
+  // 시작 순위는 앞쪽이 더 자주 나오게(1~400위, 제곱 분포). 다음 순위는 현재 순위의 최소 간격 이상에서 무작위
+  let ranks;
   do {
-    step = steps[Math.floor(Math.random() * steps.length)];
-    start = 1 + Math.floor(Math.random() * (list.length - step * (RG_N - 1)));
-  } while (RG_WIDE.some(([from, min]) => start > from && step < min)
-           || (start + step * (RG_N - 1) > 100 && step < RG_PAST100_STEP));
-  const ranks = Array.from({ length: RG_N }, (_, i) => start + step * i);
+    ranks = [1 + Math.floor(400 * Math.random() ** 2)];
+    while (ranks.length < RG_N) {
+      const r = ranks[ranks.length - 1];
+      const ok = RG_STEPS.filter((st) => st >= rgMinGap(r));
+      ranks.push(r + ok[Math.floor(Math.random() * ok.length)]);
+    }
+  } while (ranks[RG_N - 1] > list.length);
   const items = ranks.map((r) => ({ ...list[r - 1], rank: r }));
   for (let i = items.length - 1; i > 0; i--) {                // 보기 순서 섞기
     const j = Math.floor(Math.random() * (i + 1)); [items[i], items[j]] = [items[j], items[i]];
@@ -885,6 +885,20 @@ function rgChip(k) {
   return `<div class="rg-chip${state.rg.sel === k ? " sel" : ""}" data-item="${k}">${esc(it.name)}</div>`;
 }
 
+// 종목 이름 → DART 최근 정기보고서 링크(새 탭이라 이 화면은 그대로 남음). 번호가 없으면 이름만
+function dartUrl(x) {
+  return x.dart && /^\d{14}$/.test(x.dart.rcept_no) ? `https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${x.dart.rcept_no}` : "";
+}
+function dartName(x) {
+  const u = dartUrl(x);
+  return u ? `<a class="dart-a" href="${u}" target="_blank" rel="noopener" title="DART ${esc(x.dart.label)}">${esc(x.name)}</a>` : esc(x.name);
+}
+function rgDartChip(x) {
+  const u = dartUrl(x);
+  return u ? `<a class="rg-chip fixed dart-chip" href="${u}" target="_blank" rel="noopener">${esc(x.name)} <small>${esc(x.dart.label)} ↗</small></a>`
+           : `<div class="rg-chip fixed">${esc(x.name)}</div>`;
+}
+
 function renderRankGame() {
   const g = state.rg;
   const placed = new Set(g.slots.filter((x) => x !== null));
@@ -895,9 +909,9 @@ function renderRankGame() {
     if (g.done) {
       const ok = k !== null && g.items[k].rank === r;
       const right = g.items.find((it) => it.rank === r);
-      cell = k === null ? "" : `<div class="rg-chip fixed">${esc(g.items[k].name)}</div>`;
+      cell = k === null ? "" : rgDartChip(g.items[k]);
       mark = ok ? `<span class="rg-ok">✅</span>`
-        : `<span class="rg-bad">❌</span><div class="rg-answer">정답: <b>${esc(right.name)}</b></div>`;
+        : `<span class="rg-bad">❌</span><div class="rg-answer">정답: <b>${dartName(right)}</b></div>`;
     }
     const cap = g.items.find((it) => it.rank === r).mcap;   // 순위 옆 시가총액(힌트)
     return `<div class="rg-row"><span class="rg-rank">${r}위</span><span class="rg-mcap">${prettyEok(Math.round(cap / 1e8))}</span>
@@ -906,7 +920,8 @@ function renderRankGame() {
   let foot;
   if (g.done) {
     const n = g.ranks.filter((r, i) => g.slots[i] !== null && g.items[g.slots[i]].rank === r).length;
-    foot = `<p class="rank-line">${n} / ${RG_N} 정답${n === RG_N ? " 🎯" : ""}</p>`;
+    foot = `<p class="rank-line">${n} / ${RG_N} 정답${n === RG_N ? " 🎯" : ""}</p>
+      <p class="muted small">회사 이름을 누르면 DART 최근 보고서가 새 탭으로 열립니다(탭을 닫으면 이 화면으로 돌아옵니다).</p>`;
   } else {
     const pool = g.items.map((_, k) => k).filter((k) => !placed.has(k)).map((k) => rgChip(k)).join("");
     foot = `<div class="rg-pool" data-pool="1">${pool || `<span class="rg-empty">모두 놓았습니다. 정답 확인을 누르세요</span>`}</div>`;
@@ -1014,14 +1029,54 @@ async function openRankList(fromGame) {
   renderRankList(fromGame && state.rg ? state.rg.market : (state.rlMarket || "KOSPI"));
 }
 
+const RL_MOVE = 30;   // 급변동 기준: 전일 대비 순위 변동 30위 이상 (2026-11-23 20 → 30)
+
+function pctChange(cur, prev) {
+  if (!prev) return `<td class="num">-</td>`;
+  const v = (cur / prev - 1) * 100;
+  const cls = v > 0 ? "up" : v < 0 ? "down" : "";
+  return `<td class="num ${cls}">${v > 0 ? "+" : ""}${v.toFixed(1)}%</td>`;
+}
+
 function renderRankList(market) {
   state.rlMarket = market;
   const d = state.rgData;
   document.querySelectorAll("#screenRankList .tab").forEach((b) => b.classList.toggle("on", b.dataset.mkt === market));
-  $("rlInfo").textContent = `${RG_MKT[market]} 보통주 시가총액 1~${d.markets[market].length}위 · 기준일 ${fmtDate(d.basDt)} · 단위 억원`;
+  const prevDt = d.prevBasDt ? fmtDate(d.prevBasDt) : "";
+  if (market === "MOVERS") return renderMovers();
+  $("rlInfo").textContent = `${RG_MKT[market]} 보통주 시가총액 1~${d.markets[market].length}위 · 기준일 ${fmtDate(d.basDt)}` +
+    (prevDt ? ` (전일 ${prevDt})` : "") + " · 단위 억원 · 회사를 누르면 DART 최근 보고서";
   const rows = d.markets[market].map((x, i) =>
-    `<tr><td class="num">${i + 1}</td><td class="nick">${esc(x.name)}</td><td class="num">${eok(x.mcap)}</td></tr>`).join("");
-  $("rlBody").innerHTML = `<div class="tbl-wrap"><table class="rank"><tr><th>순위</th><th>회사</th><th>시가총액</th></tr>${rows}</table></div>`;
+    `<tr><td class="num">${i + 1}</td><td class="nick">${dartName(x)}</td><td class="num">${eok(x.mcap)}</td>` +
+    `<td class="num muted">${x.prev_mcap ? eok(x.prev_mcap) : "-"}</td>${pctChange(x.mcap, x.prev_mcap)}</tr>`).join("");
+  $("rlBody").innerHTML = `<div class="tbl-wrap"><table class="rank rl"><tr><th>순위</th><th>회사</th><th>시가총액</th>` +
+    `<th>전일</th><th>등락</th></tr>${rows}</table></div>`;
+}
+
+// 급변동 종목: 코스피·코스닥 각각 오늘 1~800위 중 전일 대비 순위가 20위 이상 바뀐 회사 (변동 폭 큰 순)
+function renderMovers() {
+  const d = state.rgData;
+  if (!d.prevBasDt) { $("rlInfo").textContent = ""; $("rlBody").innerHTML = `<p class="muted small">전일 데이터가 없습니다.</p>`; return; }
+  $("rlInfo").textContent = `전일(${fmtDate(d.prevBasDt)}) 대비 시가총액 순위가 ${RL_MOVE}위 이상 바뀐 회사 · ` +
+    `기준일 ${fmtDate(d.basDt)} · 오늘 1~800위 대상 · 시총 단위 억원 · 오른 순위 빨강, 내린 순위 파랑`;
+  const list = [];
+  for (const mkt of ["KOSPI", "KOSDAQ"]) {
+    d.markets[mkt].forEach((x, i) => {
+      if (x.prev_rank && Math.abs(x.prev_rank - (i + 1)) >= RL_MOVE) list.push({ ...x, mkt, rank: i + 1, diff: x.prev_rank - (i + 1) });
+    });
+  }
+  list.sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff) || b.diff - a.diff);
+  if (!list.length) { $("rlBody").innerHTML = `<p class="muted small">순위가 ${RL_MOVE}위 이상 바뀐 회사가 없습니다.</p>`; return; }
+  // 열: 순번 / 시장 / 회사 / 시총(오늘) / 오늘 순위 / 전일 순위 / 변동 / 시총 등락
+  const rows = list.map((x, n) => {
+    const cls = x.diff > 0 ? "up" : "down";
+    return `<tr><td class="num muted">${n + 1}</td><td>${{ KOSPI: "PI", KOSDAQ: "DAQ" }[x.mkt]}</td>` +
+      `<td class="nick">${dartName(x)}</td><td class="num">${eok(x.mcap)}</td>` +
+      `<td class="num ${cls}"><b>${x.rank}위</b></td><td class="num">${x.prev_rank}위</td>` +
+      `<td class="num ${cls}">${x.diff > 0 ? "▲" : "▼"}${Math.abs(x.diff)}</td>${pctChange(x.mcap, x.prev_mcap)}</tr>`;
+  }).join("");
+  $("rlBody").innerHTML = `<p class="muted small">${list.length}개 회사</p><div class="tbl-wrap"><table class="rank rl">` +
+    `<tr><th>순번</th><th>시장</th><th>회사</th><th>시총</th><th>오늘</th><th>전일</th><th>변동</th><th>시총 등락</th></tr>${rows}</table></div>`;
 }
 
 // 게임 중에 열었으면 풀던 문제로 그대로 돌아가고, 첫 화면에서 열었으면 새 게임 시작
