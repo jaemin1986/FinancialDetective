@@ -31,3 +31,6 @@ data/financials_report.json
 data/corp_list.json
 data/market_cap.json
 docs/daily/
+
+# 무엇이든 물어보세요 답변 원본 (Supabase에만 올림)
+data/qna/

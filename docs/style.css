@@ -226,3 +226,23 @@ a.dart-a { color: inherit; text-decoration: underline dotted #93c5fd; }
 a.dart-a:hover { color: #2563eb; }
 a.dart-chip { text-decoration: none; display: block; }
 a.dart-chip small { color: #2563eb; font-weight: 400; }
+/* 시총 순위·급변동: 회사명은 8글자 폭까지(넘치면 칸 안에서 밀어 보기), 나머지 열을 더 촘촘하게 (2026-11-24) */
+table.rl .rl-name { max-width: 8em; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
+table.rl .rl-name::-webkit-scrollbar { display: none; }
+table.rl th, table.rl td { padding-left: 3px; padding-right: 3px; }
+@media (max-width: 480px) {
+  table.rl { font-size: 13px; }
+  table.rl th { font-size: 11px; }
+}
+
+/* 무엇이든 물어보세요 */
+.qna-input { width: 100%; box-sizing: border-box; resize: vertical; font: inherit; }
+.qna-bar { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; }
+.qna-item { border-bottom: 1px solid var(--line); padding: 10px 0; }
+.qna-q { font-weight: 600; white-space: normal; word-break: break-word; }
+.qna-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; gap: 8px; }
+.qna-meta .btn { padding: 6px 12px; font-size: 13px; }
+.qna-wait { font-size: 12px; color: var(--muted); background: var(--sub, #f3f4f6); border-radius: 6px; padding: 3px 8px; }
+.qna-answer { margin-top: 8px; padding: 10px; background: #f8fafc; border-radius: 8px; }
+.qna-text { line-height: 1.6; word-break: break-word; }
+.qna-ttl { font-weight: 700; margin: 12px 0 4px; }

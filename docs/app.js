@@ -204,9 +204,14 @@ const ERR = {
   COMPANY_NOT_DONE: "회사부터 골라 주세요",
   FINISHED: "이미 끝난 문제예요",
   BAD_AMOUNT: "금액(억원)을 확인해 주세요",
+  Q_TOO_SHORT: "질문을 2자 이상 적어 주세요",
+  Q_TOO_LONG: "질문은 300자까지예요",
+  Q_QUEUE_FULL: "답변을 기다리는 질문이 많아요. 잠시 뒤에 올려 주세요",
+  Q_NOT_FOUND: "답변을 찾지 못했어요",
 };
 function errMsg(r) {
   if (r.error === "LOCKED") return `여러 번 틀려서 잠겼어요. ${Math.ceil((r.wait_seconds || 600) / 60)}분 뒤에 다시 시도해 주세요`;
+  if (r.error === "Q_RATE_LIMIT") return `질문은 1시간에 5개까지예요. ${Math.ceil((r.wait_seconds || 3600) / 60)}분 뒤에 다시 올려 주세요`;
   if (r.error === "TOO_SOON" && r.available_at) return `${ERR.TOO_SOON} (${r.available_at.slice(0, 10)}부터 가능)`;
   return ERR[r.error] || `오류: ${r.error}`;
 }
@@ -1047,7 +1052,7 @@ function renderRankList(market) {
   $("rlInfo").textContent = `${RG_MKT[market]} 보통주 시가총액 1~${d.markets[market].length}위 · 기준일 ${fmtDate(d.basDt)}` +
     (prevDt ? ` (전일 ${prevDt})` : "") + " · 단위 억원 · 회사를 누르면 DART 최근 보고서";
   const rows = d.markets[market].map((x, i) =>
-    `<tr><td class="num">${i + 1}</td><td class="nick">${dartName(x)}</td><td class="num">${eok(x.mcap)}</td>` +
+    `<tr><td class="num">${i + 1}</td><td class="nick"><div class="rl-name">${dartName(x)}</div></td><td class="num">${eok(x.mcap)}</td>` +
     `<td class="num muted">${x.prev_mcap ? eok(x.prev_mcap) : "-"}</td>${pctChange(x.mcap, x.prev_mcap)}</tr>`).join("");
   $("rlBody").innerHTML = `<div class="tbl-wrap"><table class="rank rl"><tr><th>순위</th><th>회사</th><th>시가총액</th>` +
     `<th>전일</th><th>등락</th></tr>${rows}</table></div>`;
@@ -1071,7 +1076,7 @@ function renderMovers() {
   const rows = list.map((x, n) => {
     const cls = x.diff > 0 ? "up" : "down";
     return `<tr><td class="num muted">${n + 1}</td><td>${{ KOSPI: "PI", KOSDAQ: "DAQ" }[x.mkt]}</td>` +
-      `<td class="nick">${dartName(x)}</td><td class="num">${eok(x.mcap)}</td>` +
+      `<td class="nick"><div class="rl-name">${dartName(x)}</div></td><td class="num">${eok(x.mcap)}</td>` +
       `<td class="num ${cls}"><b>${x.rank}위</b></td><td class="num">${x.prev_rank}위</td>` +
       `<td class="num ${cls}">${x.diff > 0 ? "▲" : "▼"}${Math.abs(x.diff)}</td>${pctChange(x.mcap, x.prev_mcap)}</tr>`;
   }).join("");
@@ -1096,6 +1101,82 @@ $("rlGame").addEventListener("click", backToRankGame);
 $("rgSubmit").addEventListener("click", () => { state.rg.done = true; state.rg.sel = null; renderRankGame(); });
 $("rgNew").addEventListener("click", newRankGame);
 $("btnRankGame").addEventListener("click", openRankGame);
+
+/* ---------------- 무엇이든 물어보세요 (공개 게시판, 2026-11-24) ---------------- */
+// 질문은 익명으로 RPC ask_question에 저장, 답변은 관리자가 scripts/qna.py로 올림.
+// 질문·답변은 모두 esc()로 글자 그대로 표시(HTML로 해석하지 않음)
+function kstDateTime(iso) {
+  const d = new Date(new Date(iso).getTime() + 9 * 3600 * 1000);
+  return d.toISOString().slice(5, 16).replace("T", " ");
+}
+
+async function openQna() {
+  show("screenQna", "투자 아이디어 발굴");
+  await loadQna();
+}
+
+async function loadQna() {
+  $("qnaList").innerHTML = `<p class="muted small">불러오는 중…</p>`;
+  let r;
+  try { r = await rpc("list_questions", {}); } catch (err) {
+    $("qnaList").innerHTML = `<p class="muted small">불러오지 못했어요: ${esc(err.message)}</p>`; return;
+  }
+  if (!r.items.length) { $("qnaList").innerHTML = `<p class="muted small">아직 질문이 없어요. 첫 질문을 남겨 보세요!</p>`; return; }
+  $("qnaList").innerHTML = r.items.map((q) => `
+    <div class="qna-item">
+      <div class="qna-q">${esc(q.body).replace(/\n/g, "<br>")}</div>
+      <div class="qna-meta"><span class="muted small">${kstDateTime(q.asked_at)}</span>
+        ${q.answered ? `<button class="btn qna-open" data-id="${Number(q.id)}">답변 완료 · 결과 보기</button>`
+                     : `<span class="qna-wait">답변 대기 중</span>`}</div>
+      <div class="qna-answer" id="qnaA${Number(q.id)}" hidden></div>
+    </div>`).join("");
+  document.querySelectorAll("#qnaList .qna-open").forEach((b) => b.addEventListener("click", () => toggleAnswer(b)));
+}
+
+async function toggleAnswer(btn) {
+  const box = $(`qnaA${btn.dataset.id}`);
+  if (!box.hidden) { box.hidden = true; btn.textContent = "답변 완료 · 결과 보기"; return; }
+  box.hidden = false; btn.textContent = "닫기";
+  if (box.dataset.loaded) return;
+  box.innerHTML = `<p class="muted small">불러오는 중…</p>`;
+  try {
+    const r = await rpc("get_answer", { question_id: Number(btn.dataset.id) });
+    if (!r.ok) { box.innerHTML = `<p class="muted small">${esc(errMsg(r))}</p>`; return; }
+    box.innerHTML = renderAnswer(r.answer, r.answered_at);
+    box.dataset.loaded = "1";
+  } catch (err) { box.innerHTML = `<p class="muted small">불러오지 못했어요: ${esc(err.message)}</p>`; }
+}
+
+function renderAnswer(a, at) {
+  let h = `<div class="qna-text">${esc(a.text || "").replace(/\n/g, "<br>")}</div>`;
+  for (const t of a.tables || []) {
+    const al = t.align || [];
+    const cls = (i) => (al[i] === "r" ? "num" : al[i] === "l" ? "nick" : "");
+    h += `${t.title ? `<p class="qna-ttl">${esc(t.title)}</p>` : ""}<div class="tbl-wrap"><table class="rank rl qna-tbl"><tr>` +
+      (t.columns || []).map((c) => `<th>${esc(c)}</th>`).join("") + "</tr>" +
+      (t.rows || []).map((row) => "<tr>" + row.map((v, i) => `<td class="${cls(i)}">${esc(v)}</td>`).join("") + "</tr>").join("") +
+      "</table></div>";
+  }
+  if (a.note) h += `<p class="muted small">${esc(a.note).replace(/\n/g, "<br>")}</p>`;
+  if (at) h += `<p class="muted small">답변 ${kstDateTime(at)}</p>`;
+  return h;
+}
+
+$("qnaInput").addEventListener("input", () => { $("qnaCount").textContent = `${$("qnaInput").value.length} / 300`; });
+$("qnaSubmit").addEventListener("click", async () => {
+  const body = $("qnaInput").value.trim();
+  if (body.length < 2) { toast(ERR.Q_TOO_SHORT); return; }
+  $("qnaSubmit").disabled = true;
+  try {
+    const r = await rpc("ask_question", { body });
+    if (!r.ok) { toast(errMsg(r)); return; }
+    $("qnaInput").value = ""; $("qnaCount").textContent = "0 / 300";
+    toast("질문을 올렸어요. 답변이 달리면 여기서 볼 수 있어요");
+    await loadQna();
+  } catch (err) { toast(`오류: ${err.message}`); }
+  finally { $("qnaSubmit").disabled = false; }
+});
+$("btnQna").addEventListener("click", openQna);
 
 /* ---------------- 기타 ---------------- */
 let toastTimer;
