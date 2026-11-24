@@ -246,3 +246,6 @@ table.rl th, table.rl td { padding-left: 3px; padding-right: 3px; }
 .qna-answer { margin-top: 8px; padding: 10px; background: #f8fafc; border-radius: 8px; }
 .qna-text { line-height: 1.6; word-break: break-word; }
 .qna-ttl { font-weight: 700; margin: 12px 0 4px; }
+@media (max-width: 480px) {
+  .qna-answer { padding: 6px 2px; }   /* 답변 표가 옆으로 더 많이 보이게 */
+}

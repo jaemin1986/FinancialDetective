@@ -1154,7 +1154,9 @@ function renderAnswer(a, at) {
     const cls = (i) => (al[i] === "r" ? "num" : al[i] === "l" ? "nick" : "");
     h += `${t.title ? `<p class="qna-ttl">${esc(t.title)}</p>` : ""}<div class="tbl-wrap"><table class="rank rl qna-tbl"><tr>` +
       (t.columns || []).map((c) => `<th>${esc(c)}</th>`).join("") + "</tr>" +
-      (t.rows || []).map((row) => "<tr>" + row.map((v, i) => `<td class="${cls(i)}">${esc(v)}</td>`).join("") + "</tr>").join("") +
+      (t.rows || []).map((row) => "<tr>" + row.map((v, i) => cls(i) === "nick"
+        ? `<td class="nick"><div class="rl-name">${esc(v)}</div></td>`   // 회사명: 8글자 폭, 넘치면 칸 안에서 밀어 보기
+        : `<td class="${cls(i)}">${esc(v)}</td>`).join("") + "</tr>").join("") +
       "</table></div>";
   }
   if (a.note) h += `<p class="muted small">${esc(a.note).replace(/\n/g, "<br>")}</p>`;
