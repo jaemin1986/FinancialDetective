@@ -249,3 +249,5 @@ table.rl th, table.rl td { padding-left: 3px; padding-right: 3px; }
 @media (max-width: 480px) {
   .qna-answer { padding: 6px 2px; }   /* 답변 표가 옆으로 더 많이 보이게 */
 }
+/* 상장주식수 변화 표시 (2026-11-26) */
+.sh-badge { font-size: 10px; font-weight: 600; color: #b45309; white-space: nowrap; }

@@ -57,24 +57,33 @@ QUARTER_END = {3: "3.31", 6: "6.30", 9: "9.30"}
 CUM_NAME = {3: "1Q", 6: "1~2Q", 9: "1~3Q"}
 
 
+def _quarter_data(corp_code, year, reprt, fs):
+    path = RAW / "fin" / str(year) / f"{corp_code}_{fs}_{reprt}.json"
+    if path.exists():
+        return read_json(path)
+    data = dart_json("fnlttSinglAcntAll.json", {
+        "corp_code": corp_code, "bsns_year": str(year), "reprt_code": reprt, "fs_div": fs})
+    if data.get("status") != "013":
+        write_json(path, data)
+    return data
+
+
 def fetch_quarter(corp_code, fs, annual_year):
-    """사업보고서(annual_year)보다 새로운 최신 분기·반기보고서. 연간과 같은 연결/별도 기준으로만 받는다.
-    없으면 None. 미제출(013)은 캐시하지 않는다(다음 갱신 때 다시 확인)."""
+    """사업보고서(annual_year)보다 새로운 최신 분기·반기보고서. 없으면 None.
+    연간과 같은 연결/별도 기준을 먼저 보고, 그 보고서가 다른 기준으로만 있으면 그것을 쓴다
+    (2026-11-26: 자회사 청산으로 연간은 연결·분기는 별도만 있는 회사 39개 — 화면에 "(별도)" 표시).
+    미제출(013)은 캐시하지 않는다(다음 갱신 때 다시 확인).
+    반환: (year, reprt, months, qname, data, 사용한 fs)"""
     this_year = now_kst().year
+    alt = "OFS" if fs == "CFS" else "CFS"
     for year in (this_year, this_year - 1):
         if year <= annual_year:
             continue
         for reprt, months, qname in QUARTER_REPORTS:
-            path = RAW / "fin" / str(year) / f"{corp_code}_{fs}_{reprt}.json"
-            if path.exists():
-                data = read_json(path)
-            else:
-                data = dart_json("fnlttSinglAcntAll.json", {
-                    "corp_code": corp_code, "bsns_year": str(year), "reprt_code": reprt, "fs_div": fs})
-                if data.get("status") != "013":
-                    write_json(path, data)
-            if data.get("status") == "000" and data.get("list"):
-                return year, reprt, months, qname, data
+            for f in (fs, alt):
+                data = _quarter_data(corp_code, year, reprt, f)
+                if data.get("status") == "000" and data.get("list"):
+                    return year, reprt, months, qname, data, f
     return None
 
 
@@ -82,9 +91,20 @@ def quarter_entry(corp_code, fs, annual_year):
     got = fetch_quarter(corp_code, fs, annual_year)
     if not got:
         return None
-    year, reprt, months, qname, data = got
+    year, reprt, months, qname, data, qfs = got
     q = extract(data["list"], QUARTER)
     pl, cf = q["pl"], q["cf"]
+    # 분기보고서만 계정 번호를 다르게 쓴 회사 보정 (2026-11-26)
+    #  - 서비스업: 매출을 "영업수익"으로 매출총이익 번호에 넣고 매출원가가 없음 → 그 값을 매출로
+    #  - 전체 순이익 줄 없이 지배주주 순이익만 있음 → 세전이익 − 법인세, 그것도 없으면 지배주주 순이익
+    if not pl.get("revenue") and pl.get("gross_profit") and not pl.get("cost_of_sales"):
+        pl["revenue"], pl["gross_profit"] = pl["gross_profit"], None
+    if not pl.get("net_income") or pl["net_income"][1] is None:
+        pt, tx = pl.get("pretax"), pl.get("income_tax")
+        if pt and tx and None not in pt and None not in tx:
+            pl["net_income"] = [a - b for a, b in zip(pt, tx)]
+        elif pl.get("net_income_owners"):
+            pl["net_income"] = pl["net_income_owners"]
     # 필수 항목(올해 누적 매출·영업이익·순이익, 분기말 자산·부채·자본)이 없으면 쓰지 않음
     if any(not pl.get(k) or pl[k][1] is None for k in ("revenue", "operating_income", "net_income"))             or any(not q["bs"].get(k) or q["bs"][k][0] is None for k in ("assets", "liabilities", "equity")):
         return None
@@ -92,11 +112,12 @@ def quarter_entry(corp_code, fs, annual_year):
     if abs(a - (l + e)) > 0.005 * abs(a) + 1e8:  # 분기말 자산 ≠ 부채+자본 (원본 불일치) → 연간만 표시
         return None
     yy = lambda y: str(y)[2:]
+    mark = "" if qfs == fs else ("(별도)" if qfs == "OFS" else "(연결)")   # 연간과 기준이 다르면 표시
     return {
-        "year": year, "reprt_code": reprt, "months": months,
-        "label": f"{yy(year)}.{qname}", "period": f"1~{months}월 누적",
-        "bs_date": f"{yy(year)}.{QUARTER_END[months]}",
-        "cum_label": [f"{yy(year - 1)}.{CUM_NAME[months]}", f"{yy(year)}.{CUM_NAME[months]}"],
+        "year": year, "reprt_code": reprt, "months": months, "fs_div": qfs,
+        "label": f"{yy(year)}.{qname}{mark}", "period": f"1~{months}월 누적",
+        "bs_date": f"{yy(year)}.{QUARTER_END[months]}{mark}",
+        "cum_label": [f"{yy(year - 1)}.{CUM_NAME[months]}{mark}", f"{yy(year)}.{CUM_NAME[months]}{mark}"],
         "bs": q["bs"], "pl": pl, "cf": cf,   # pl·cf = [전년 동기 누적, 올해 누적], bs = [분기말]
     }
 

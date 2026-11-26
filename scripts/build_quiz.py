@@ -242,6 +242,12 @@ def per_pbr_base(f, q):
     지배주주 값이 하나라도 없으면 당기순이익·자본총계로 대신한다."""
     a_pl, a_bs = f["annual"]["pl"], f["annual"]["bs"]
     year = str(f["years"][-1])[2:]
+    if q and q.get("fs_div", f["fs_div"]) != f["fs_div"]:
+        # 분기만 기준이 다름(예: 연간 연결, 분기 별도) → 섞어서 LTM을 만들지 않고 PER은 연간, PBR은 분기말
+        last = lambda v: v[-1] if v else None
+        ni = last(a_pl.get("net_income_owners")) or last(a_pl["net_income"])
+        eq = (q["bs"].get("equity_owners") or [None])[0] or q["bs"]["equity"][0]
+        return ni, eq, f"PER ({year})", f"PBR ({q['label']})"
     if q:
         own = a_pl.get("net_income_owners"), q["pl"].get("net_income_owners")
         if own[0] and own[0][-1] is not None and own[1] and None not in own[1]:
@@ -267,7 +273,7 @@ def latest_report(code, f):
         return _RCEPT[code]
     q, fs = f.get("quarter"), f["fs_div"]
     if q:
-        path = RAW / "fin" / str(q["year"]) / f"{code}_{fs}_{q['reprt_code']}.json"
+        path = RAW / "fin" / str(q["year"]) / f"{code}_{q.get('fs_div', fs)}_{q['reprt_code']}.json"
         name = {"11013": "1분기보고서", "11012": "반기보고서", "11014": "3분기보고서"}[q["reprt_code"]]
         label = f"{q['year']} {name}"
     else:

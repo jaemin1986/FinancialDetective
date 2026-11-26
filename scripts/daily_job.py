@@ -14,9 +14,9 @@
 import argparse
 import subprocess
 import sys
-from datetime import timedelta
+from datetime import date, timedelta
 
-from common import DATA, quiz_today, supabase_rest, now_kst, read_json
+from common import DATA, RAW, quiz_today, supabase_rest, now_kst, read_json
 
 PY = sys.executable
 SEASON_MONTHS = {3, 4, 5, 8, 11}  # 사업보고서(3월)·1Q(5월)·반기(8월)·3Q(11월) 제출 시즌
@@ -41,12 +41,18 @@ def main():
         run("scripts/fetch_corp_list.py", *(["--refresh-corpcode"] if a.refresh_financials else []))
         run("scripts/fetch_financials.py")
     else:
+        # 보고서 시즌에는 마지막 재무 갱신 후 7일이 지나면 다시 받는다 (2026-11-26 변경).
+        # 예전 "KST 월요일" 조건은 Actions가 자정 넘어 시작하면 화요일이 돼 건너뛰는 문제가 있었음.
+        # 기록 파일은 data/raw(Actions 캐시)에 있어서 실행 사이에 유지된다. 파일이 없으면 바로 갱신.
         t = now_kst()
-        season_monday = t.month in SEASON_MONTHS and t.weekday() == 0
-        no_quarter_field = not any("quarter" in v for v in read_json(fin_path).values())  # 분기 기능 첫 반영
-        if season_monday or no_quarter_field:
-            print("재무제표 갱신 (보고서 시즌 주간 갱신 또는 분기 데이터 첫 수집)")
+        mark = RAW / "financials_refreshed.txt"
+        last = date.fromisoformat(mark.read_text().strip()) if mark.exists() else None
+        due = last is None or (t.month in SEASON_MONTHS and (t.date() - last).days >= 7)
+        if due:
+            print(f"재무제표 갱신 (마지막 갱신 {last or '기록 없음'})")
             run("scripts/fetch_financials.py")
+            mark.parent.mkdir(parents=True, exist_ok=True)
+            mark.write_text(t.date().isoformat())
     run("scripts/fetch_market_cap.py")
 
     today = quiz_today()

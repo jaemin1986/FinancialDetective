@@ -4,6 +4,7 @@ r"""추가 게임 "시총 순위를 맞춰라!" + 시총 순위 화면 데이터
 - data/market_cap.json(매일 갱신, 최신 기준일)에서 코스피·코스닥 각각 시가총액 상위 800개를 순위대로 저장한다.
 - 보통주만(종목코드 끝자리 0). 우선주·코넥스·스팩은 뺀다.
 - 전일(직전 거래일) 시가총액·순위도 함께 넣는다(시총 순위 화면의 전일 대비, 급변동 종목). 2026-11-23 추가
+- 주가 등락률(chg)과 상장주식수 변화 배수(sh, 바뀐 회사만)도 넣는다. 2026-11-26 추가
   전일 원본은 data/raw/mcap/<basDt>.json 캐시를 쓰고, 없으면 공공데이터 API로 받는다(하루 약 4건).
 - 종목마다 DART 최근 정기보고서 접수번호(게임 결과 화면 링크). 2026-11-23 추가
   출제 대상 회사는 받아 둔 재무 캐시(data/raw/fin)에서, 나머지(금융사 등)는 OpenDART 공시검색 list.json
@@ -49,14 +50,20 @@ def prev_caps(basdt):
         rows = fetch_day(bas)
         if not rows:
             continue
-        caps = {}
-        for r in rows:
-            try:
-                caps[r["srtnCd"]] = {"mcap": int(r["mrktTotAmt"]), "market": r["mrktCtg"], "name": r["itmsNm"]}
-            except (KeyError, ValueError):
-                continue
-        return bas, caps
+        return bas, day_caps(rows)
     return None, {}
+
+
+def day_caps(rows):
+    """원본 행 → {종목코드: {mcap, market, name, shares(상장주식수), chg(주가 등락률 %)}}"""
+    caps = {}
+    for r in rows:
+        try:
+            caps[r["srtnCd"]] = {"mcap": int(r["mrktTotAmt"]), "market": r["mrktCtg"], "name": r["itmsNm"],
+                                 "shares": int(r["lstgStCnt"]), "chg": float(r["fltRt"])}
+        except (KeyError, ValueError):
+            continue
+    return caps
 
 
 def dart_report(corp_code, fins):
@@ -87,6 +94,7 @@ def dart_report(corp_code, fins):
 
 def main():
     mc = read_json(DATA / "market_cap.json")
+    today = day_caps(fetch_day(mc["basDt"]))   # 상장주식수·주가 등락률(원본 캐시, 없으면 API 4건)
     cur = ranking(mc["caps"])
     prev_bas, pcaps = prev_caps(mc["basDt"])
     prev = ranking(pcaps)
@@ -106,6 +114,12 @@ def main():
                 item["prev_mcap"] = pcaps[k]["mcap"]
             if k in prev_rank[mkt]:
                 item["prev_rank"] = prev_rank[mkt][k]
+            t = today.get(k)
+            if t:
+                item["chg"] = t["chg"]                       # 주가 등락률(%)
+                ps = (pcaps.get(k) or {}).get("shares")
+                if ps and t["shares"] != ps:                 # 상장주식수 변화(증자·CB전환·합병·감자·분할 등)
+                    item["sh"] = round(t["shares"] / ps, 3)
             cc = corp_of.get(k)
             if cc:
                 had = (RAW / "latest_report" / f"{cc}.json").exists() or cc in fins

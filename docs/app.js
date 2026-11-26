@@ -1036,6 +1036,17 @@ async function openRankList(fromGame) {
 
 const RL_MOVE = 30;   // 급변동 기준: 전일 대비 순위 변동 30위 이상 (2026-11-23 20 → 30)
 
+// 상장주식수가 전일과 달라진 회사 표시 (증자·CB 전환·합병·감자·분할 등 → 시총 등락이 주가 등락과 다름)
+function shBadge(x) {
+  if (!x.sh) return "";
+  const v = (x.sh - 1) * 100;
+  return `<div class="sh-badge">주식수 ${v > 0 ? "+" : ""}${Math.abs(v) < 0.1 ? v.toFixed(2) : v.toFixed(1)}%</div>`;
+}
+function chgCell(v) {
+  if (v === undefined || v === null) return `<td class="num">-</td>`;
+  return `<td class="num ${v > 0 ? "up" : v < 0 ? "down" : ""}">${v > 0 ? "+" : ""}${v.toFixed(1)}%</td>`;
+}
+
 function pctChange(cur, prev) {
   if (!prev) return `<td class="num">-</td>`;
   const v = (cur / prev - 1) * 100;
@@ -1052,7 +1063,7 @@ function renderRankList(market) {
   $("rlInfo").textContent = `${RG_MKT[market]} 보통주 시가총액 1~${d.markets[market].length}위 · 기준일 ${fmtDate(d.basDt)}` +
     (prevDt ? ` (전일 ${prevDt})` : "") + " · 단위 억원 · 회사를 누르면 DART 최근 보고서";
   const rows = d.markets[market].map((x, i) =>
-    `<tr><td class="num">${i + 1}</td><td class="nick"><div class="rl-name">${dartName(x)}</div></td><td class="num">${eok(x.mcap)}</td>` +
+    `<tr><td class="num">${i + 1}</td><td class="nick"><div class="rl-name">${dartName(x)}</div>${shBadge(x)}</td><td class="num">${eok(x.mcap)}</td>` +
     `<td class="num muted">${x.prev_mcap ? eok(x.prev_mcap) : "-"}</td>${pctChange(x.mcap, x.prev_mcap)}</tr>`).join("");
   $("rlBody").innerHTML = `<div class="tbl-wrap"><table class="rank rl"><tr><th>순위</th><th>회사</th><th>시가총액</th>` +
     `<th>전일</th><th>등락</th></tr>${rows}</table></div>`;
@@ -1063,7 +1074,7 @@ function renderMovers() {
   const d = state.rgData;
   if (!d.prevBasDt) { $("rlInfo").textContent = ""; $("rlBody").innerHTML = `<p class="muted small">전일 데이터가 없습니다.</p>`; return; }
   $("rlInfo").textContent = `전일(${fmtDate(d.prevBasDt)}) 대비 시가총액 순위가 ${RL_MOVE}위 이상 바뀐 회사 · ` +
-    `기준일 ${fmtDate(d.basDt)} · 오늘 1~800위 대상 · 시총 단위 억원 · 오른 순위 빨강, 내린 순위 파랑`;
+    `기준일 ${fmtDate(d.basDt)} · 오늘 1~800위 대상 · 시총 단위 억원 · 오른 순위 빨강, 내린 순위 파랑 · "주식수" 표시 = 상장주식수가 바뀌어 시총 등락과 주가 등락이 다른 회사`;
   const list = [];
   for (const mkt of ["KOSPI", "KOSDAQ"]) {
     d.markets[mkt].forEach((x, i) => {
@@ -1076,12 +1087,12 @@ function renderMovers() {
   const rows = list.map((x, n) => {
     const cls = x.diff > 0 ? "up" : "down";
     return `<tr><td class="num muted">${n + 1}</td><td>${{ KOSPI: "PI", KOSDAQ: "DAQ" }[x.mkt]}</td>` +
-      `<td class="nick"><div class="rl-name">${dartName(x)}</div></td><td class="num">${eok(x.mcap)}</td>` +
+      `<td class="nick"><div class="rl-name">${dartName(x)}</div>${shBadge(x)}</td><td class="num">${eok(x.mcap)}</td>` +
       `<td class="num ${cls}"><b>${x.rank}위</b></td><td class="num">${x.prev_rank}위</td>` +
-      `<td class="num ${cls}">${x.diff > 0 ? "▲" : "▼"}${Math.abs(x.diff)}</td>${pctChange(x.mcap, x.prev_mcap)}</tr>`;
+      `<td class="num ${cls}">${x.diff > 0 ? "▲" : "▼"}${Math.abs(x.diff)}</td>${pctChange(x.mcap, x.prev_mcap)}${chgCell(x.chg)}</tr>`;
   }).join("");
   $("rlBody").innerHTML = `<p class="muted small">${list.length}개 회사</p><div class="tbl-wrap"><table class="rank rl">` +
-    `<tr><th>순번</th><th>시장</th><th>회사</th><th>시총</th><th>오늘</th><th>전일</th><th>변동</th><th>시총 등락</th></tr>${rows}</table></div>`;
+    `<tr><th>순번</th><th>시장</th><th>회사</th><th>시총</th><th>오늘</th><th>전일</th><th>변동</th><th>시총 등락</th><th>주가 등락</th></tr>${rows}</table></div>`;
 }
 
 // 게임 중에 열었으면 풀던 문제로 그대로 돌아가고, 첫 화면에서 열었으면 새 게임 시작
