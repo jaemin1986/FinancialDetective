@@ -302,6 +302,8 @@ anon이 실행할 수 있는 RPC 함수(전부 `SECURITY DEFINER`):
   - 버튼은 별도 사이트 https://jaemin1986.github.io/TrumpPortfolio/ 를 새 탭으로 연다 (트럼프 대통령 재산 공개 기반 보유 주식 추적, 별도 프로젝트 `trump-portfolio-tracker`)
   - `docs/index.html`의 `.card-pair`, `docs/style.css`. 360px 이하 화면은 위아래로 쌓임
   - 다른 PC(회사)에서 고쳐 올린 변경이라, 집 PC에서는 작업 전에 `git pull`로 받을 것
+  - **`docs/style.css`·`docs/app.js`를 고치면 `index.html`의 `?v=날짜` 표시도 바꿀 것.** GitHub Pages가 파일을 10분간 브라우저에 저장하게 해서,
+    안 바꾸면 새 HTML + 예전 CSS로 화면이 깨져 보인다 (2026-11-27 실제로 겪음: 카드가 위아래로 쌓이고 버튼에 밑줄)
 
 ## 7. 결정 필요 (기본값으로 진행하되, 해당 기능을 만들 때 사용자에게 확인)
 1. **회사를 틀렸을 때**: ✅ 결정됨(2026-11-14) — 기회 1번 더(총 2번). 그래도 틀리면 정답 공개 후 시총 단계 진행. 2번째에 맞히면 20점(배점은 #6에서 재확인)
