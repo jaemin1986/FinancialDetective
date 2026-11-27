@@ -47,6 +47,13 @@ h3 { font-size: 16px; margin: 0 0 6px; }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
 .btn:disabled { opacity: .5; cursor: default; }
 .row { display: flex; gap: 8px; justify-content: center; }
+a.btn { display: inline-block; text-decoration: none; color: inherit; text-align: center; }
+/* 반반 카드: 두 카드를 나란히, 높이를 맞추고 버튼은 아래쪽에 */
+.card-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.card-pair .card { margin-bottom: 0; display: flex; flex-direction: column; align-items: flex-start; min-width: 0; }
+.card-pair .card h3 { word-break: keep-all; }
+.card-pair .card .btn { margin-top: auto; }
+@media (max-width: 360px) { .card-pair { grid-template-columns: 1fr; } }   /* 아주 좁은 화면은 위아래로 */
 .stack { display: grid; gap: 8px; margin: 8px 0; }
 
 /* 가입·로그인 */

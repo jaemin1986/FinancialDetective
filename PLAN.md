@@ -298,6 +298,10 @@ anon이 실행할 수 있는 RPC 함수(전부 `SECURITY DEFINER`):
   - DB: `supabase/qna.sql` — `questions` 테이블(RLS, anon 권한 없음) + RPC `ask_question`·`list_questions`·`get_answer`. 도배 방지는 `attempts`에 `ask:`+IP 해시로만 세고 질문과 연결하지 않음
   - 답변: 사용자가 집에서 "질문 확인해줘" → Claude가 `scripts/qna.py list`로 확인, 재무·시총 데이터로 답(설명+표 JSON, 원본 `data/qna/` git 제외) 작성 → `qna.py answer`로 Supabase에만 저장. 오늘·내일 퀴즈 정답 관련 질문은 답하지 않음. 장난 글은 `qna.py hide`
   - 화면은 질문·답변을 모두 글자 그대로 표시(HTML 해석 안 함)
+- [x] (2026-11-27 추가) 첫 화면 "무엇이든 물어보세요" 카드를 반으로 줄이고, 옆 반에 **Trump는 뭘 사고 팔까?** 카드 + "확인하러 가기" 버튼
+  - 버튼은 별도 사이트 https://jaemin1986.github.io/TrumpPortfolio/ 를 새 탭으로 연다 (트럼프 대통령 재산 공개 기반 보유 주식 추적, 별도 프로젝트 `trump-portfolio-tracker`)
+  - `docs/index.html`의 `.card-pair`, `docs/style.css`. 360px 이하 화면은 위아래로 쌓임
+  - 다른 PC(회사)에서 고쳐 올린 변경이라, 집 PC에서는 작업 전에 `git pull`로 받을 것
 
 ## 7. 결정 필요 (기본값으로 진행하되, 해당 기능을 만들 때 사용자에게 확인)
 1. **회사를 틀렸을 때**: ✅ 결정됨(2026-11-14) — 기회 1번 더(총 2번). 그래도 틀리면 정답 공개 후 시총 단계 진행. 2번째에 맞히면 20점(배점은 #6에서 재확인)
