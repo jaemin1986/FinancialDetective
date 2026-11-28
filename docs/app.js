@@ -1174,12 +1174,14 @@ function renderAnswer(a, at) {
   for (const t of a.tables || []) {
     const al = t.align || [];
     const cls = (i) => (al[i] === "r" ? "num" : al[i] === "l" ? "nick" : "");
-    h += `${t.title ? `<p class="qna-ttl">${esc(t.title)}</p>` : ""}<div class="tbl-wrap"><table class="rank rl qna-tbl"><tr>` +
+    // 표마다 제목을 눌러 열고 접기 (기본은 접힘, 2026-11-28)
+    h += `<details class="qna-fold"><summary class="qna-ttl">${esc(t.title || "표")}</summary>` +
+      `<div class="tbl-wrap"><table class="rank rl qna-tbl"><tr>` +
       (t.columns || []).map((c) => `<th>${esc(c)}</th>`).join("") + "</tr>" +
       (t.rows || []).map((row) => "<tr>" + row.map((v, i) => cls(i) === "nick"
         ? `<td class="nick"><div class="rl-name">${qnaCell(v)}</div></td>`   // 회사명: 8글자 폭, 넘치면 칸 안에서 밀어 보기
         : `<td class="${cls(i)}">${qnaCell(v)}</td>`).join("") + "</tr>").join("") +
-      "</table></div>";
+      "</table></div></details>";
   }
   if (a.note) h += `<p class="muted small">${esc(a.note).replace(/\n/g, "<br>")}</p>`;
   if (at) h += `<p class="muted small">답변 ${kstDateTime(at)}</p>`;

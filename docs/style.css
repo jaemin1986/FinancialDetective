@@ -258,3 +258,12 @@ table.rl th, table.rl td { padding-left: 3px; padding-right: 3px; }
 }
 /* 상장주식수 변화 표시 (2026-11-26) */
 .sh-badge { font-size: 10px; font-weight: 600; color: #b45309; white-space: nowrap; }
+/* 게시판 답변: 표 접기·펼치기 (2026-11-28) */
+.qna-fold { border: 1px solid var(--line); border-radius: 8px; background: #fff; margin: 8px 0; }
+.qna-fold > summary.qna-ttl { margin: 0; padding: 10px 12px; cursor: pointer; list-style: none; display: flex;
+  justify-content: space-between; align-items: center; user-select: none; }
+.qna-fold > summary::-webkit-details-marker { display: none; }
+.qna-fold > summary::after { content: "펼치기 ▾"; font-size: 12px; font-weight: 400; color: var(--accent); white-space: nowrap; margin-left: 8px; }
+.qna-fold[open] > summary::after { content: "접기 ▴"; }
+.qna-fold[open] > summary { border-bottom: 1px solid var(--line); }
+.qna-fold .tbl-wrap { padding: 0 4px 6px; }
