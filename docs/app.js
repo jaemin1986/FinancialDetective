@@ -1158,6 +1158,17 @@ async function toggleAnswer(btn) {
   } catch (err) { box.innerHTML = `<p class="muted small">불러오지 못했어요: ${esc(err.message)}</p>`; }
 }
 
+// 답변 표 칸: 글자 그대로. {"t": 이름, "rcp": 14자리 접수번호}이면 DART 보고서 링크(그 주소 형식만 허용)
+function qnaCell(v) {
+  if (v && typeof v === "object") {
+    const t = esc(v.t ?? "");
+    return /^\d{14}$/.test(String(v.rcp || ""))
+      ? `<a class="dart-a" href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${v.rcp}" target="_blank" rel="noopener">${t}</a>`
+      : t;
+  }
+  return esc(v);
+}
+
 function renderAnswer(a, at) {
   let h = `<div class="qna-text">${esc(a.text || "").replace(/\n/g, "<br>")}</div>`;
   for (const t of a.tables || []) {
@@ -1166,8 +1177,8 @@ function renderAnswer(a, at) {
     h += `${t.title ? `<p class="qna-ttl">${esc(t.title)}</p>` : ""}<div class="tbl-wrap"><table class="rank rl qna-tbl"><tr>` +
       (t.columns || []).map((c) => `<th>${esc(c)}</th>`).join("") + "</tr>" +
       (t.rows || []).map((row) => "<tr>" + row.map((v, i) => cls(i) === "nick"
-        ? `<td class="nick"><div class="rl-name">${esc(v)}</div></td>`   // 회사명: 8글자 폭, 넘치면 칸 안에서 밀어 보기
-        : `<td class="${cls(i)}">${esc(v)}</td>`).join("") + "</tr>").join("") +
+        ? `<td class="nick"><div class="rl-name">${qnaCell(v)}</div></td>`   // 회사명: 8글자 폭, 넘치면 칸 안에서 밀어 보기
+        : `<td class="${cls(i)}">${qnaCell(v)}</td>`).join("") + "</tr>").join("") +
       "</table></div>";
   }
   if (a.note) h += `<p class="muted small">${esc(a.note).replace(/\n/g, "<br>")}</p>`;

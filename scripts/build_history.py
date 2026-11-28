@@ -1,7 +1,9 @@
 r"""출제 히스토리 → docs/history.json (첫 화면 "출제 히스토리" 버튼용, 2026-11-19 추가)
 
 실행: .\.venv\Scripts\python.exe scripts\build_history.py
-- Supabase answers(오늘의 문제)에서 **어제까지** 날짜만 센다. 오늘·내일 문제는 아직 풀기 전이라 넣지 않는다.
+- Supabase answers(오늘의 문제)에서 **달력 기준(자정) 어제까지** 날짜만 센다 (2026-11-28 사용자 결정).
+  밤 작업은 보통 자정~새벽 2시에 돌기 때문에, 하루의 경계(새벽 3시) 대신 자정을 기준으로 해서
+  방금 끝난 날의 문제를 바로 넣는다. 자정 전에 돌면 그날 문제는 넣지 않는다(아직 푸는 중).
 - 보기(하루 3문제 × 4개)에 나올 때마다 그 회사 +1. 그중 정답이었던 횟수도 함께 센다.
 - 시가총액은 data/market_cap.json의 최신 기준일 시가총액(원).
 - 회사마다 보기에 나온 날짜(on)도 담아 화면에서 날짜별 열에 O로 표시한다.
@@ -10,13 +12,13 @@ r"""출제 히스토리 → docs/history.json (첫 화면 "출제 히스토리" 
 from collections import Counter
 
 from build_quiz import clean_name
-from common import DATA, ROOT, read_json, write_json, supabase_rest, quiz_today, now_kst
+from common import DATA, ROOT, read_json, write_json, supabase_rest, now_kst
 
 OUT = ROOT / "docs" / "history.json"
 
 
 def main():
-    today = quiz_today()
+    today = now_kst().date()   # 자정 기준 달력 날짜 (quiz_today()의 새벽 3시 경계가 아님)
     rows = supabase_rest("GET", f"answers?select=quiz_date,qn,corp_name,reveal&quiz_date=lt.{today}").json()
     shown, answered, days = Counter(), Counter(), set()
     on = {}  # 회사 → 보기에 나온 날짜 집합 (날짜별 O 표시용)
