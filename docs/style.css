@@ -267,3 +267,41 @@ table.rl th, table.rl td { padding-left: 3px; padding-right: 3px; }
 .qna-fold[open] > summary::after { content: "접기 ▴"; }
 .qna-fold[open] > summary { border-bottom: 1px solid var(--line); }
 .qna-fold .tbl-wrap { padding: 0 4px 6px; }
+
+/* 저장한 종목 (2026-11-28) */
+.stat-btn { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 6px; text-align: center;
+  display: flex; flex-direction: column; cursor: pointer; font: inherit; color: var(--accent); }
+.stat-btn span { font-size: 11px; color: var(--accent); }
+.stat-btn b { font-size: 15px; }
+.keystats:has(.save-btn) { grid-template-columns: 1.4fr 1fr 1fr auto; }
+.save-btn { align-self: center; justify-self: end; font: inherit; font-size: 11px; white-space: nowrap; cursor: pointer;
+  border: 1px solid var(--accent); color: var(--accent); background: #fff; border-radius: 6px; padding: 3px 6px; }
+.save-btn.on { background: var(--accent); color: #fff; }
+.rg-res { display: flex; align-items: center; gap: 6px; width: 100%; }
+.rg-res > a, .rg-res > .rg-chip { flex: 1; min-width: 0; }
+.modal { position: fixed; inset: 0; background: rgba(15, 23, 42, .45); display: flex; align-items: center;
+  justify-content: center; z-index: 2000; padding: 16px; }
+.modal[hidden] { display: none; }
+.modal-box { background: #fff; border-radius: 12px; padding: 16px; width: 100%; max-width: 360px; box-shadow: 0 10px 30px rgba(0,0,0,.2); }
+.modal-title { font-weight: 700; margin: 0 0 2px; }
+.reason-list { display: flex; flex-direction: column; gap: 6px; margin: 10px 0; }
+.reason-list .btn { text-align: left; }
+.reason.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.modal-actions { display: flex; gap: 8px; margin-top: 10px; }
+.modal-actions .btn { flex: 1; }
+.saved-item { border-bottom: 1px solid var(--line); padding: 10px 0; }
+.saved-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.saved-name { font-weight: 700; }
+.saved-reasons { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
+.reason-tag { font-size: 12px; background: #fef3c7; color: #92400e; border-radius: 6px; padding: 2px 8px; }
+.saved-meta { line-height: 1.5; }
+.saved-actions { display: flex; gap: 6px; margin-top: 6px; }
+.saved-actions .btn { padding: 5px 10px; font-size: 13px; }
+/* 저장한 종목: 한 줄 표 (2026-11-28) */
+.saved-tbl td { vertical-align: middle; }
+.saved-tbl .saved-rs { text-align: left; white-space: normal; min-width: 90px; }
+.saved-tbl .saved-rs .reason-tag { display: inline-block; font-size: 11px; padding: 1px 6px; margin: 1px 2px 1px 0; }
+.saved-btns { white-space: nowrap; }
+.mini { font: inherit; font-size: 11px; padding: 2px 6px; margin-left: 3px; border: 1px solid var(--line);
+  background: #fff; border-radius: 6px; cursor: pointer; }
+.mini.save-del { color: #dc2626; }

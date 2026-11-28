@@ -152,7 +152,8 @@ function renderCompare(list, answerIdx) {
     const key = `<div class="keystats">
         <div><span>시가총액</span><b>${eok(r.mcap)}</b></div>
         <div><span>${r.per_label || "PER"}</span><b>${mult(r.per, 1, "적자")}</b></div>
-        <div><span>${r.pbr_label || "PBR"}</span><b>${mult(r.pbr, 2, "잠식")}</b></div></div>`;
+        <div><span>${r.pbr_label || "PBR"}</span><b>${mult(r.pbr, 2, "잠식")}</b></div>${saveBtn({
+          code: r.code, name: r.name, market: r.market, mcap: r.mcap, rcp: r.dart && r.dart.rcept_no, source: "quiz" })}</div>`;
     // 회사명·업종 부분을 누르면 DART 최근 보고서를 새 탭으로 (이 화면은 그대로 남음)
     const rcp = r.dart && /^\d{14}$/.test(r.dart.rcept_no) ? r.dart.rcept_no : "";
     const dartOpen = rcp ? `<a class="dart-link" href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${rcp}" target="_blank" rel="noopener">` : "";
@@ -273,6 +274,7 @@ async function goHome() {
   $("startMember").hidden = !state.session;
   if (!state.session) return;
   $("helloName").textContent = state.session.nickname;
+  loadSaved().catch(() => {});   // 저장한 종목 미리 불러와서 결과 화면 버튼에 "저장됨" 표시 (SQL 실행 전이면 조용히 무시)
   $("todayInfo").textContent = `${kstToday()} · 하루 3문제 · 새벽 3시에 새 문제 · 한 번 낸 답은 되돌릴 수 없어요`;
   $("btnDaily").textContent = "오늘의 문제 풀기";
   $("myStats").innerHTML = "";
@@ -294,7 +296,12 @@ function renderStats(h) {
   } else if (todayRow) {
     $("btnDaily").textContent = `오늘의 문제 이어서 풀기 (${todayRow.solved + 1}/${todayRow.questions})`;
   }
-  if (!done.length) { $("myStats").innerHTML = `<p class="muted small">아직 기록이 없어요. 첫 문제를 풀어 보세요!</p>`; return; }
+  const savedBtn = `<button type="button" class="stat-btn" id="btnSaved"><span>저장한 종목</span><b>보기 ›</b></button>`;
+  if (!done.length) {
+    $("myStats").innerHTML = `<p class="muted small">아직 기록이 없어요. 첫 문제를 풀어 보세요!</p>${savedBtn}`;
+    $("btnSaved").addEventListener("click", openSaved);
+    return;
+  }
   const days = new Set(done.map((r) => r.quiz_date));
   let d = days.has(h.today) ? h.today : addDays(h.today, -1);
   let streak = 0;
@@ -304,7 +311,8 @@ function renderStats(h) {
   const avg = Math.round(done.reduce((s, r) => s + (r.score || 0), 0) / done.length);
   const items = [["연속 참여", `${streak}일`], ["참여", `${done.length}일`],
                  ["회사 정답률", rate("company_ok")], ["시총 정답률", rate("mcap_hits")], ["하루 평균", `${avg}점`]];
-  $("myStats").innerHTML = items.map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join("");
+  $("myStats").innerHTML = items.map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join("") + savedBtn;
+  $("btnSaved").addEventListener("click", openSaved);
 }
 
 /* ---------------- 가입 (팀 코드 → 닉네임 → PIN → 확인) ---------------- */
@@ -820,7 +828,7 @@ function renderHistory(h, sortDate) {
     const cells = dates.map((d) => `<td class="day${d === sortDate ? " sorted" : ""}">${on.has(d) ? "O" : ""}</td>`).join("");
     // 회사명은 7글자 폭까지만 보이고 넘치면 칸 안에서 옆으로 밀어서 봄. 시장은 PI/DAQ로 줄임
     const mkt = { KOSPI: "PI", KOSDAQ: "DAQ" }[x.market] || x.market || "";
-    return `<tr><td class="nick"><div class="hist-name" title="${esc(x.name)}">${esc(x.name)}</div></td><td>${esc(mkt)}</td>
+    return `<tr><td class="nick"><div class="hist-name" title="${esc(x.name)}">${dartName(x)}</div></td><td>${esc(mkt)}</td>
       <td class="num">${x.count}</td><td class="num">${x.answer || ""}</td>
       <td class="num">${eok(x.mcap)}</td>${cells}</tr>`;
   }).join("");
@@ -914,7 +922,9 @@ function renderRankGame() {
     if (g.done) {
       const ok = k !== null && g.items[k].rank === r;
       const right = g.items.find((it) => it.rank === r);
-      cell = k === null ? "" : rgDartChip(g.items[k]);
+      cell = k === null ? "" : `<div class="rg-res">${rgDartChip(g.items[k])}${saveBtn({
+        code: g.items[k].code, name: g.items[k].name, market: g.market, mcap: g.items[k].mcap,
+        rcp: g.items[k].dart && g.items[k].dart.rcept_no, source: "rank" })}</div>`;
       mark = ok ? `<span class="rg-ok">✅</span>`
         : `<span class="rg-bad">❌</span><div class="rg-answer">정답: <b>${dartName(right)}</b></div>`;
     }
@@ -1203,6 +1213,131 @@ $("qnaSubmit").addEventListener("click", async () => {
   finally { $("qnaSubmit").disabled = false; }
 });
 $("btnQna").addEventListener("click", openQna);
+
+/* ---------------- 저장한 종목 (로그인한 사람만, 2026-11-28) ---------------- */
+// 회사는 종목코드로 구분(회사 맞히기 = DART 이름, 시총 게임 = 시세 이름이라 다를 수 있음)
+const SAVE_REASONS = { 1: "시총이 높아서", 2: "시총이 낮아서", 3: "종목이 안 외워져서", 4: "기타" };
+state.saveTargets = [];
+state.saved = null;      // 종목코드 → 저장 항목 (list_saved 결과, 처음 필요할 때 불러옴)
+
+function saveBtn(t) {
+  if (!state.session || !t.code) return "";
+  const k = state.saveTargets.push(t) - 1;
+  const on = state.saved && state.saved.has(t.code);
+  return `<button type="button" class="save-btn${on ? " on" : ""}" data-save="${k}">${on ? "★ 저장됨" : "☆ 종목 저장"}</button>`;
+}
+
+async function loadSaved(force) {
+  if (!state.session) return new Map();
+  if (state.saved && !force) return state.saved;
+  const r = await rpc("list_saved", { token: state.session.token });
+  if (!r.ok) { handleErr(r); return new Map(); }
+  state.saved = new Map(r.items.map((x) => [x.code, x]));
+  return state.saved;
+}
+
+let saveCtx = null;   // 팝업에서 저장할 대상
+function openSaveModal(t) {
+  saveCtx = t;
+  const prev = state.saved && state.saved.get(t.code);
+  const picked = new Set(prev ? prev.reasons : []);
+  $("saveName").textContent = `· ${t.name}`;
+  document.querySelectorAll("#saveModal .reason").forEach((b) => b.classList.toggle("on", picked.has(Number(b.dataset.r))));
+  $("saveMemo").value = (prev && prev.memo) || "";
+  syncSaveModal();
+  $("saveModal").hidden = false;
+}
+function syncSaveModal() {
+  const on = [...document.querySelectorAll("#saveModal .reason.on")].map((b) => Number(b.dataset.r));
+  $("saveMemo").hidden = !on.includes(4);
+  $("saveOk").disabled = !on.length;
+}
+document.querySelectorAll("#saveModal .reason").forEach((b) => b.addEventListener("click", () => {
+  b.classList.toggle("on"); syncSaveModal();
+}));
+$("saveCancel").addEventListener("click", () => { $("saveModal").hidden = true; });
+$("saveModal").addEventListener("click", (e) => { if (e.target.id === "saveModal") $("saveModal").hidden = true; });
+$("saveOk").addEventListener("click", async () => {
+  const t = saveCtx; if (!t) return;
+  const reasons = [...document.querySelectorAll("#saveModal .reason.on")].map((b) => Number(b.dataset.r));
+  $("saveOk").disabled = true;
+  try {
+    const r = await rpc("save_company", { token: state.session.token, code: t.code, name: t.name, reasons,
+      memo: reasons.includes(4) ? $("saveMemo").value.trim() : null, market: t.market || null,
+      mcap: t.mcap || null, rcept_no: t.rcp || null, source: t.source });
+    if (!r.ok) { handleErr(r); return; }
+    $("saveModal").hidden = true;
+    await loadSaved(true);
+    document.querySelectorAll(`.save-btn[data-save]`).forEach((b) => {     // 같은 회사 버튼 모두 '저장됨'으로
+      const x = state.saveTargets[Number(b.dataset.save)];
+      if (x && x.code === t.code) { b.classList.add("on"); b.textContent = "★ 저장됨"; }
+    });
+    toast(`${t.name} 저장했어요`);
+    if (!$("screenSaved").hidden) renderSaved();
+  } catch (err) { toast(`오류: ${err.message}`); }
+  finally { $("saveOk").disabled = false; }
+});
+document.addEventListener("click", (e) => {
+  const b = e.target.closest(".save-btn[data-save]");
+  if (!b) return;
+  e.preventDefault(); e.stopPropagation();
+  const t = state.saveTargets[Number(b.dataset.save)];
+  if (t) loadSaved().then(() => openSaveModal(t)).catch((err) => toast(`오류: ${err.message}`));
+});
+
+async function openSaved() {
+  show("screenSaved", "저장한 종목");
+  $("savedBody").innerHTML = `<p class="muted small">불러오는 중…</p>`;
+  try {
+    await loadSaved(true);
+    try { await loadRankData(); } catch (err) { /* 최신 시총 없이도 목록은 보여줌 */ }
+    renderSaved();
+  } catch (err) { $("savedBody").innerHTML = `<p class="muted small">불러오지 못했어요: ${esc(err.message)}</p>`; }
+}
+
+function renderSaved() {
+  const items = [...(state.saved || new Map()).values()];
+  if (!items.length) {
+    $("savedBody").innerHTML = `<p class="muted small">아직 저장한 종목이 없어요. 게임 결과 화면에서 "☆ 종목 저장"을 눌러 보세요.</p>`;
+    return;
+  }
+  const latest = new Map();   // 종목코드 → 최신 시총 (시총 순위 데이터: 코스피·코스닥 각 800위까지)
+  if (state.rgData) for (const l of Object.values(state.rgData.markets)) for (const x of l) if (x.code) latest.set(x.code, x.mcap);
+  state.saveTargets = [];
+  // 한 회사 = 한 줄: 회사 / 시장 / 이유 / 저장 당시 시총 / 최신 시총(변화) / 저장일 / 버튼 (2026-11-28)
+  const SHORT = { 1: "시총 높음", 2: "시총 낮음", 3: "안 외워짐", 4: "기타" };
+  const rows = items.map((x) => {
+    const reasons = x.reasons.map((r) => `<span class="reason-tag">${esc(SHORT[r] || "")}${r === 4 && x.memo ? `: ${esc(x.memo)}` : ""}</span>`).join("");
+    const cur = latest.get(x.code);
+    const k = state.saveTargets.push({ code: x.code, name: x.name, market: x.market, mcap: x.mcap_at_save, rcp: x.rcept_no, source: x.source }) - 1;
+    const chg = cur && x.mcap_at_save ? (cur / x.mcap_at_save - 1) * 100 : null;
+    return `<tr>
+      <td class="nick"><div class="rl-name">${dartName({ name: x.name, dart: x.rcept_no ? { rcept_no: x.rcept_no, label: "최근 보고서" } : null })}</div></td>
+      <td>${esc({ KOSPI: "PI", KOSDAQ: "DAQ" }[x.market] || "")}</td>
+      <td class="saved-rs">${reasons}</td>
+      <td class="num">${x.mcap_at_save ? eok(x.mcap_at_save) : "-"}</td>
+      <td class="num">${cur ? eok(cur) : "-"}</td>
+      ${chg === null ? `<td class="num">-</td>` : `<td class="num ${chg > 0 ? "up" : chg < 0 ? "down" : ""}">${chg > 0 ? "+" : ""}${chg.toFixed(1)}%</td>`}
+      <td class="muted">${kstDateTime(x.saved_at).slice(0, 5)}</td>
+      <td class="saved-btns"><button type="button" class="mini save-edit" data-save="${k}" title="이유 바꾸기">수정</button><button
+        type="button" class="mini save-del" data-code="${esc(x.code)}" data-name="${esc(x.name)}" title="삭제">삭제</button></td>
+    </tr>`;
+  }).join("");
+  $("savedBody").innerHTML = `<p class="muted small">${items.length}개 · 최근 저장 순 · 시총 단위 억원</p>
+    <div class="tbl-wrap"><table class="rank rl saved-tbl"><tr><th>회사</th><th>시장</th><th>이유</th><th>저장 당시</th>
+      <th>최신</th><th>변화</th><th>저장일</th><th></th></tr>${rows}</table></div>`;
+  document.querySelectorAll("#savedBody .save-edit").forEach((b) => b.addEventListener("click", () => {
+    const t = state.saveTargets[Number(b.dataset.save)]; if (t) openSaveModal(t);
+  }));
+  document.querySelectorAll("#savedBody .save-del").forEach((b) => b.addEventListener("click", async () => {
+    if (!confirm(`${b.dataset.name}을(를) 저장 목록에서 지울까요?`)) return;
+    try {
+      const r = await rpc("delete_saved", { token: state.session.token, code: b.dataset.code });
+      if (!r.ok) { handleErr(r); return; }
+      await loadSaved(true); renderSaved(); toast("지웠어요");
+    } catch (err) { toast(`오류: ${err.message}`); }
+  }));
+}
 
 /* ---------------- 기타 ---------------- */
 let toastTimer;

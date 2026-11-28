@@ -293,7 +293,8 @@ def summary(c, fins, caps, ksic):
     mcap = caps[c["stock_code"]]["mcap"]
     out = {"name": clean_name(c["corp_name"]), "industry_code": c["induty_code"],
            "industry": industry_name(c["induty_code"], ksic),
-           "market": caps[c["stock_code"]]["market"], "mcap": mcap}
+           "market": caps[c["stock_code"]]["market"], "mcap": mcap,
+           "code": c["stock_code"]}   # 종목 저장용 (정답 공개 후 reveal에만, 2026-11-28)
     f = fins.get(c["corp_code"])
     if f:
         pl, bs, cf = f["annual"]["pl"], f["annual"]["bs"], f["annual"]["cf"]

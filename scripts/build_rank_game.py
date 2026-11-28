@@ -109,7 +109,7 @@ def main():
     for mkt, rows in cur.items():
         lst = []
         for k, v in rows[:TOP]:
-            item = {"name": v["name"], "mcap": v["mcap"]}
+            item = {"name": v["name"], "mcap": v["mcap"], "code": k}
             if k in pcaps:
                 item["prev_mcap"] = pcaps[k]["mcap"]
             if k in prev_rank[mkt]:

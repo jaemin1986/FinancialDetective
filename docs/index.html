@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>FinancialDetective</title>
-  <link rel="stylesheet" href="style.css?v=20261128b">
+  <link rel="stylesheet" href="style.css?v=20261128e">
 </head>
 <body>
   <header class="top">
@@ -289,6 +289,16 @@
       </div>
     </section>
 
+    <!-- 저장한 종목 (로그인한 사람만, 2026-11-28) -->
+    <section id="screenSaved" class="screen" hidden>
+      <div class="card">
+        <h3>저장한 종목</h3>
+        <p class="muted small">회사 맞히기·시총 순위 게임 결과에서 "종목 저장"을 누른 회사입니다. 내 닉네임으로만 보입니다.
+          회사명을 누르면 DART 최근 보고서가 새 탭으로 열립니다.</p>
+        <div id="savedBody"></div>
+      </div>
+    </section>
+
     <!-- 랭킹 화면 -->
     <section id="screenRank" class="screen" hidden>
       <div class="card">
@@ -303,9 +313,28 @@
     </section>
   </main>
 
+  <!-- 종목 저장 팝업 -->
+  <div id="saveModal" class="modal" hidden>
+    <div class="modal-box">
+      <p class="modal-title">또 보고 싶은 이유 <span class="muted small" id="saveName"></span></p>
+      <p class="muted small">여러 개 고를 수 있어요.</p>
+      <div class="reason-list">
+        <button type="button" class="btn reason" data-r="1">1. 시총이 높아서</button>
+        <button type="button" class="btn reason" data-r="2">2. 시총이 낮아서</button>
+        <button type="button" class="btn reason" data-r="3">3. 종목이 안 외워져서</button>
+        <button type="button" class="btn reason" data-r="4">4. 기타 이유</button>
+      </div>
+      <input id="saveMemo" class="field" maxlength="50" placeholder="기타 이유 (50자까지)" hidden>
+      <div class="modal-actions">
+        <button type="button" class="btn" id="saveCancel">취소</button>
+        <button type="button" class="btn primary" id="saveOk" disabled>저장</button>
+      </div>
+    </div>
+  </div>
+
   <div id="toast" class="toast" hidden></div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
-  <script src="app.js?v=20261128b"></script>
+  <script src="app.js?v=20261128e"></script>
 </body>
 </html>

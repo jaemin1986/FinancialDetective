@@ -11,7 +11,7 @@ r"""출제 히스토리 → docs/history.json (첫 화면 "출제 히스토리" 
 """
 from collections import Counter
 
-from build_quiz import clean_name
+from build_quiz import clean_name, latest_report
 from common import DATA, ROOT, read_json, write_json, supabase_rest, now_kst
 
 OUT = ROOT / "docs" / "history.json"
@@ -42,9 +42,14 @@ def main():
     for name, n in shown.items():
         c = corps.get(name)
         cap = caps.get(c["stock_code"]) if c else None
-        items.append({"name": name, "market": (cap or {}).get("market", ""),
-                      "count": n, "answer": answered.get(name, 0),
-                      "mcap": (cap or {}).get("mcap"), "on": sorted(on[name])})
+        item = {"name": name, "market": (cap or {}).get("market", ""),
+                "count": n, "answer": answered.get(name, 0),
+                "mcap": (cap or {}).get("mcap"), "on": sorted(on[name])}
+        f = fins.get(c["corp_code"]) if c else None
+        rep = latest_report(c["corp_code"], f) if f else None   # DART 최근 보고서 링크 (2026-11-28)
+        if rep:
+            item["dart"] = rep
+        items.append(item)
     items.sort(key=lambda x: (-x["count"], -x["answer"], x["name"]))
     write_json(OUT, {
         "generated_at": now_kst().isoformat(timespec="seconds"),
